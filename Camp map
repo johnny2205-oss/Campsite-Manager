@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campsite Manager</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f0ede6; min-height: 100vh; }
+  header { background: #2d5a27; color: white; padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; font-weight: 600; flex: 1; }
+  .header-stats { font-size: 13px; opacity: 0.85; }
+  .sync-indicator { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+  .sync-ok { background: #27ae60; color: white; }
+  .sync-err { background: #c0392b; color: white; }
+  .sync-pending { background: #f39c12; color: white; }
+  .btn { padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; font-family: inherit; }
+  .btn-white { background: white; color: #2d5a27; }
+  .btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,0.6); }
+  .btn-outline.active { background: rgba(255,255,255,0.2); border-color: white; }
+  .btn-red { background: #c0392b; color: white; }
+  .btn-blue { background: #2471a3; color: white; }
+  .btn-green { background: #27ae60; color: white; }
+  .btn-gray { background: #f5f5f5; color: #333; }
+
+  .legend { display: flex; gap: 16px; padding: 10px 20px; background: white; border-bottom: 1px solid #ddd; font-size: 12px; align-items: center; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 20px; height: 16px; border-radius: 3px; border: 2px solid; }
+  .legend-swatch.free { background: white; border-color: #5a8a54; }
+  .legend-swatch.reserved { background: #d6eaf8; border-color: #2471a3; }
+  .legend-swatch.occupied { background: #fde8e6; border-color: #c0392b; }
+
+  #map-container { padding: 20px; overflow: auto; }
+  #map {
+    position: relative; background: #e8f5e3; border: 2px solid #b5d4a8; border-radius: 10px;
+    background-image: linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  #map.edit-mode { cursor: crosshair; }
+
+  .spot {
+    position: absolute; border: 2px solid #5a8a54; background: white; border-radius: 5px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none; transition: transform 0.1s, box-shadow 0.1s;
+    font-weight: 600; color: #2d5a27; overflow: hidden;
+  }
+  .spot:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); transform: scale(1.04); }
+  .spot.reserved { background: #d6eaf8; border-color: #2471a3; color: #2471a3; }
+  .spot.occupied { background: #fde8e6; border-color: #c0392b; color: #c0392b; }
+  .spot-label-text { font-weight: 600; pointer-events: none; }
+  .spot-name { font-weight: 400; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; max-width: 90%; pointer-events: none; }
+  .spot-status-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 2px; pointer-events: none; }
+  .spot.reserved .spot-status-dot { background: #2471a3; }
+  .spot.occupied .spot-status-dot { background: #c0392b; }
+
+  .spot-delete { display: none; position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; background: #c0392b; color: white; border-radius: 50%; font-size: 12px; line-height: 18px; text-align: center; cursor: pointer; font-weight: 700; z-index: 10; }
+  .spot-resize { display: none; position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #2d5a27; cursor: se-resize; border-radius: 2px 0 4px 0; }
+  .edit-mode .spot .spot-delete { display: block; }
+  .edit-mode .spot .spot-resize { display: block; }
+
+  .label-box {
+    position: absolute; background: rgba(45,90,39,0.15); border: 1px dashed #5a8a54;
+    border-radius: 4px; padding: 3px 8px; font-weight: 600; color: #2d5a27;
+    white-space: nowrap; cursor: default; pointer-events: none;
+  }
+  .label-box.editable { pointer-events: all; cursor: move; }
+  .label-delete { display: none; position: absolute; top: -8px; right: -8px; width: 16px; height: 16px; background: #c0392b; color: white; border-radius: 50%; font-size: 11px; line-height: 16px; text-align: center; cursor: pointer; font-weight: 700; z-index: 10; }
+  .label-resize { display: none; position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #5a8a54; cursor: se-resize; border-radius: 2px 0 4px 0; }
+  .edit-mode .label-box .label-delete { display: block; }
+  .edit-mode .label-box .label-resize { display: block; }
+
+  #status-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
+  #status-modal.open { display: flex; }
+  #status-box { background: white; border-radius: 12px; padding: 28px 32px; width: 300px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+  #status-box h3 { font-size: 17px; margin-bottom: 6px; color: #222; }
+  #status-box p { font-size: 13px; color: #777; margin-bottom: 22px; }
+  .status-btns { display: flex; flex-direction: column; gap: 10px; }
+  .status-btns button { padding: 12px; border-radius: 8px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  #sbtn-reserved { background: #d6eaf8; color: #2471a3; border: 2px solid #2471a3; }
+  #sbtn-occupied { background: #fde8e6; color: #c0392b; border: 2px solid #c0392b; }
+  #sbtn-cancel { background: #f0f0f0; color: #555; }
+
+  #panel { position: fixed; top: 0; right: -400px; width: 380px; height: 100%; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); transition: right 0.3s ease; z-index: 100; display: flex; flex-direction: column; }
+  #panel.open { right: 0; }
+  #panel-header { background: #2d5a27; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+  #panel-header h2 { font-size: 16px; }
+  #panel-close { background: none; border: none; color: white; font-size: 22px; cursor: pointer; line-height: 1; }
+  #panel-body { padding: 20px; flex: 1; overflow-y: auto; }
+  .field-group { margin-bottom: 16px; }
+  .field-group label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .field-group input { width: 100%; padding: 9px 12px; border: 1.5px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; }
+  .field-group input:focus { border-color: #2d5a27; }
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+  .status-badge.reserved { background: #d6eaf8; color: #2471a3; }
+  .status-badge.occupied { background: #fde8e6; color: #c0392b; }
+  #panel-footer { padding: 16px 20px; border-top: 1px solid #eee; display: flex; gap: 10px; flex-wrap: wrap; }
+  #panel-footer button { flex: 1; min-width: 80px; padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; }
+  #btn-save { background: #2d5a27; color: white; }
+  #btn-free { background: #f5f5f5; color: #333; }
+  #btn-change-status { background: #eee; color: #444; }
+
+  #edit-panel { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: white; border: 1.5px solid #ddd; border-radius: 10px; padding: 12px 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: none; align-items: center; gap: 10px; z-index: 99; flex-wrap: wrap; justify-content: center; }
+  #edit-panel.visible { display: flex; }
+  #edit-panel label { font-size: 13px; color: #555; font-weight: 500; }
+  #edit-panel input[type=text], #edit-panel input[type=number] { padding: 6px 10px; border: 1.5px solid #ddd; border-radius: 5px; font-size: 13px; font-family: inherit; }
+  #edit-panel input[type=text] { width: 80px; }
+  #edit-panel input[type=number] { width: 70px; }
+  #edit-panel input:focus { border-color: #2d5a27; outline: none; }
+  .edit-sep { width: 1px; height: 28px; background: #ddd; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⛺ Campsite Manager</h1>
+  <span class="header-stats" id="stats">Loading...</span>
+  <span class="sync-indicator sync-pending" id="sync-status">⏳ Connecting...</span>
+  <button class="btn btn-outline" id="btn-edit-toggle">✏️ Edit layout</button>
+  <button class="btn btn-white" id="btn-import">📂 Load backup</button>
+  <input type="file" id="import-file" accept=".json" style="display:none">
+</header>
+
+<div class="legend">
+  <span style="font-weight:600;font-size:12px;color:#555;">Legend:</span>
+  <div class="legend-item"><div class="legend-swatch free"></div> Free</div>
+  <div class="legend-item"><div class="legend-swatch reserved"></div> Reserved</div>
+  <div class="legend-item"><div class="legend-swatch occupied"></div> Occupied</div>
+  <span style="font-size:12px;color:#888;margin-left:8px;">Click = set status &nbsp;|&nbsp; Double-click = guest info</span>
+</div>
+
+<div id="map-container"><div id="map"></div></div>
+
+<div id="status-modal">
+  <div id="status-box">
+    <h3 id="status-modal-title">Spot —</h3>
+    <p>Set this spot's status:</p>
+    <div class="status-btns">
+      <button id="sbtn-reserved">🔵 Reserved</button>
+      <button id="sbtn-occupied">🔴 Occupied</button>
+      <button id="sbtn-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="panel">
+  <div id="panel-header"><h2 id="panel-title">Spot —</h2><button id="panel-close">×</button></div>
+  <div id="panel-body">
+    <div id="panel-status-badge"></div>
+    <div class="field-group"><label>Guest name</label><input type="text" id="field-name" placeholder="e.g. Svensson family" /></div>
+    <div class="field-group"><label>Arrival date</label><input type="date" id="field-from" /></div>
+    <div class="field-group"><label>Departure date</label><input type="date" id="field-to" /></div>
+    <div class="field-group"><label>Notes</label><input type="text" id="field-notes" placeholder="e.g. 2 adults, dog" /></div>
+  </div>
+  <div id="panel-footer">
+    <button id="btn-save">💾 Save</button>
+    <button id="btn-change-status">🔄 Status</button>
+    <button id="btn-free">✖ Mark free</button>
+  </div>
+</div>
+
+<div id="edit-panel">
+  <label>New spot:</label>
+  <input type="text" id="new-spot-label" placeholder="e.g. 35" />
+  <button class="btn btn-green" id="btn-add-spot">+ Spot</button>
+  <div class="edit-sep"></div>
+  <button class="btn" style="color:#2d5a27;border:1.5px solid #2d5a27;background:white;" id="btn-add-label">+ Area label</button>
+  <div class="edit-sep"></div>
+  <label>Map size:</label>
+  <label style="font-size:12px;color:#888;">W</label>
+  <input type="number" id="map-width" value="960" min="400" max="3000" step="40" />
+  <label style="font-size:12px;color:#888;">H</label>
+  <input type="number" id="map-height" value="760" min="300" max="3000" step="40" />
+  <button class="btn btn-gray" id="btn-apply-size">Apply</button>
+  <div class="edit-sep"></div>
+  <span style="font-size:12px;color:#888;">Drag to move · corner to resize</span>
+  <button class="btn btn-red" id="btn-done-edit">Done</button>
+  <button class="btn btn-white" style="color:#2d5a27;border:1.5px solid #2d5a27;" id="btn-export">💾 Save backup</button>
+</div>
+
+<script>
+// ── Firebase config ──────────────────────────────────────────────
+const DB_URL = 'https://campsite-manager-nas-default-rtdb.europe-west1.firebasedatabase.app';
+
+let syncEnabled = false;
+let ignoreNextRemoteUpdate = false;
+
+function dbFetch(path) {
+  return fetch(DB_URL + path + '.json').then(r => r.json());
+}
+function dbSet(path, data) {
+  return fetch(DB_URL + path + '.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(r => r.json());
+}
+function dbPatch(path, data) {
+  return fetch(DB_URL + path + '.json', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(r => r.json());
+}
+
+function setSyncStatus(status, msg) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.className = 'sync-indicator sync-' + status;
+}
+
+// Poll Firebase every 5 seconds for changes from other computers
+let lastRemoteHash = null;
+function startPolling() {
+  setInterval(async () => {
+    try {
+      const remote = await dbFetch('');
+      if (!remote) return;
+      const hash = JSON.stringify(remote);
+      if (hash !== lastRemoteHash) {
+        lastRemoteHash = hash;
+        if (!ignoreNextRemoteUpdate) {
+          // Merge remote into local state without overwriting if we're mid-edit
+          if (remote.guests) state.guests = remote.guests;
+          if (remote.spots) state.spots = remote.spots;
+          if (remote.labels) state.labels = remote.labels;
+          if (remote.mapW) { state.mapW = remote.mapW; state.mapH = remote.mapH; }
+          localStorage.setItem('campsite_v4', JSON.stringify(state));
+          renderMap();
+          setSyncStatus('ok', '🟢 Synced');
+        }
+        ignoreNextRemoteUpdate = false;
+      }
+    } catch(e) {
+      setSyncStatus('err', '🔴 Offline');
+    }
+  }, 5000);
+}
+
+async function pushToFirebase() {
+  ignoreNextRemoteUpdate = true;
+  setSyncStatus('pending', '⏳ Saving...');
+  try {
+    await dbSet('', state);
+    const hash = JSON.stringify(state);
+    lastRemoteHash = hash;
+    setSyncStatus('ok', '🟢 Synced');
+  } catch(e) {
+    setSyncStatus('err', '🔴 Offline – saved locally');
+  }
+}
+
+// ── Default data ─────────────────────────────────────────────────
+const DEFAULT_SPOTS = [
+  {id:'s1',label:'1',x:120,y:150,w:60,h:50},{id:'s2',label:'2',x:185,y:150,w:60,h:50},
+  {id:'s3',label:'3',x:250,y:150,w:60,h:50},{id:'s4',label:'4',x:315,y:150,w:60,h:50},
+  {id:'s5',label:'5',x:380,y:150,w:60,h:50},{id:'s6',label:'6',x:445,y:150,w:60,h:50},
+  {id:'s7',label:'7',x:510,y:150,w:60,h:50},{id:'s8',label:'8',x:575,y:150,w:60,h:50},
+  {id:'s8a',label:'8A',x:650,y:150,w:60,h:50},{id:'s34',label:'34',x:700,y:230,w:60,h:50},
+  {id:'s30',label:'30',x:100,y:255,w:60,h:50},{id:'s29',label:'29',x:165,y:275,w:60,h:50},
+  {id:'s28',label:'28',x:230,y:295,w:60,h:50},{id:'s27',label:'27',x:310,y:315,w:60,h:50},
+  {id:'s26',label:'26',x:375,y:315,w:60,h:50},{id:'sIII',label:'III',x:450,y:335,w:60,h:50},
+  {id:'s25',label:'25',x:520,y:335,w:60,h:50},{id:'s31',label:'31',x:30,y:415,w:60,h:50},
+  {id:'s22',label:'22',x:450,y:415,w:60,h:50},{id:'s23',label:'23',x:515,y:415,w:60,h:50},
+  {id:'s24',label:'24',x:580,y:415,w:60,h:50},{id:'sIV',label:'IV',x:385,y:445,w:60,h:50},
+  {id:'s19',label:'19',x:165,y:475,w:60,h:50},{id:'s20',label:'20',x:230,y:475,w:60,h:50},
+  {id:'s21',label:'21',x:295,y:475,w:60,h:50},{id:'s32',label:'32',x:30,y:555,w:60,h:50},
+  {id:'s12',label:'12',x:465,y:575,w:60,h:50},{id:'s11',label:'11',x:535,y:575,w:60,h:50},
+  {id:'s10',label:'10',x:605,y:575,w:60,h:50},{id:'s9',label:'9',x:675,y:575,w:60,h:50},
+  {id:'s18',label:'18',x:30,y:625,w:60,h:50},{id:'s17',label:'17',x:95,y:625,w:60,h:50},
+  {id:'s16',label:'16',x:160,y:625,w:60,h:50},{id:'s15',label:'15',x:225,y:625,w:60,h:50},
+  {id:'s18p',label:'18+',x:30,y:670,w:60,h:50},{id:'s14',label:'14',x:255,y:665,w:60,h:50},
+  {id:'s13',label:'13',x:320,y:665,w:60,h:50},{id:'s33',label:'33',x:385,y:665,w:60,h:50},
+  {id:'sV',label:'V',x:465,y:665,w:60,h:50},{id:'sII',label:'II',x:540,y:665,w:60,h:50},
+  {id:'sI',label:'I',x:615,y:665,w:60,h:50},{id:'sVI',label:'VI',x:860,y:375,w:60,h:50},
+];
+const DEFAULT_LABELS = [
+  {id:'l_storanget',text:'Storanget',x:30,y:130,fs:11},{id:'l_brygga',text:'Brygga',x:718,y:120,fs:11},
+  {id:'l_fiske',text:'Fiske',x:790,y:155,fs:11},{id:'l_kanot',text:'Kanot',x:848,y:155,fs:11},
+  {id:'l_recept',text:'Recept',x:848,y:255,fs:11},{id:'l_kok',text:'Kök',x:858,y:440,fs:11},
+  {id:'l_toalett',text:'Toalett',x:845,y:490,fs:11},{id:'l_dusch',text:'Dusch',x:848,y:540,fs:11},
+];
+
+let state = { spots:[], labels:[], guests:{}, mapW:960, mapH:760 };
+let editMode = false;
+let activeSpotId = null;
+let pendingStatusSpotId = null;
+
+async function loadState() {
+  setSyncStatus('pending', '⏳ Connecting...');
+  try {
+    const remote = await dbFetch('');
+    if (remote && remote.spots && remote.spots.length > 0) {
+      state = remote;
+      if (!state.mapW) { state.mapW = 960; state.mapH = 760; }
+      lastRemoteHash = JSON.stringify(remote);
+      setSyncStatus('ok', '🟢 Synced');
+    } else {
+      // First time: load from localStorage or use defaults
+      const saved = localStorage.getItem('campsite_v4');
+      if (saved) { state = JSON.parse(saved); } else { resetToDefault(); }
+      // Push local data up to Firebase
+      await pushToFirebase();
+    }
+  } catch(e) {
+    setSyncStatus('err', '🔴 Offline – using local data');
+    const saved = localStorage.getItem('campsite_v4');
+    if (saved) { state = JSON.parse(saved); } else { resetToDefault(); }
+  }
+  localStorage.setItem('campsite_v4', JSON.stringify(state));
+  renderMap();
+  startPolling();
+}
+
+function resetToDefault() {
+  state.spots = JSON.parse(JSON.stringify(DEFAULT_SPOTS));
+  state.labels = JSON.parse(JSON.stringify(DEFAULT_LABELS));
+  state.guests = {}; state.mapW = 960; state.mapH = 760;
+}
+
+function saveState() {
+  localStorage.setItem('campsite_v4', JSON.stringify(state));
+  updateStats();
+  pushToFirebase();
+}
+
+function updateStats() {
+  const total = state.spots.length;
+  const res = Object.values(state.guests).filter(g => g && g.status === 'reserved').length;
+  const occ = Object.values(state.guests).filter(g => g && g.status === 'occupied').length;
+  document.getElementById('stats').textContent = `${occ} occupied · ${res} reserved · ${total-occ-res} free · ${total} total`;
+}
+
+function applyMapSize() {
+  const map = document.getElementById('map');
+  map.style.width = state.mapW + 'px';
+  map.style.minHeight = state.mapH + 'px';
+}
+
+function renderMap() {
+  const map = document.getElementById('map');
+  map.innerHTML = '';
+  applyMapSize();
+  if (editMode) map.classList.add('edit-mode'); else map.classList.remove('edit-mode');
+
+  (state.labels || []).forEach(lb => {
+    const el = document.createElement('div');
+    el.className = 'label-box' + (editMode ? ' editable' : '');
+    el.style.left = lb.x + 'px'; el.style.top = lb.y + 'px';
+    el.style.fontSize = (lb.fs || 11) + 'px';
+    const span = document.createElement('span');
+    span.textContent = lb.text; el.appendChild(span);
+    if (editMode) {
+      const del = document.createElement('div');
+      del.className = 'label-delete'; del.textContent = '×';
+      del.addEventListener('click', e => { e.stopPropagation(); deleteLabel(lb.id); });
+      el.appendChild(del);
+      const resz = document.createElement('div');
+      resz.className = 'label-resize';
+      setupLabelResize(resz, lb, el); el.appendChild(resz);
+      setupDrag(el, lb);
+    }
+    map.appendChild(el);
+  });
+
+  (state.spots || []).forEach(spot => {
+    const g = state.guests[spot.id] || {};
+    const status = g.status || 'free';
+    const el = document.createElement('div');
+    el.className = 'spot' + (status !== 'free' ? ' ' + status : '');
+    el.style.left = spot.x + 'px'; el.style.top = spot.y + 'px';
+    el.style.width = (spot.w || 60) + 'px'; el.style.height = (spot.h || 50) + 'px';
+    const fs = Math.max(9, Math.min(14, Math.floor((spot.w || 60) / 5)));
+    el.style.fontSize = fs + 'px';
+    const lbl = document.createElement('div');
+    lbl.className = 'spot-label-text'; lbl.textContent = spot.label; el.appendChild(lbl);
+    if (g.name) {
+      const nm = document.createElement('div');
+      nm.className = 'spot-name'; nm.style.maxWidth = ((spot.w||60)-8)+'px';
+      nm.style.fontSize = Math.max(8, fs-2)+'px'; nm.textContent = g.name; el.appendChild(nm);
+    }
+    if (status !== 'free') {
+      const dot = document.createElement('div'); dot.className = 'spot-status-dot'; el.appendChild(dot);
+    }
+    if (editMode) {
+      const del = document.createElement('div');
+      del.className = 'spot-delete'; del.textContent = '×';
+      del.addEventListener('click', e => { e.stopPropagation(); deleteSpot(spot.id); });
+      el.appendChild(del);
+      const resz = document.createElement('div');
+      resz.className = 'spot-resize';
+      setupSpotResize(resz, spot, el); el.appendChild(resz);
+      setupDrag(el, spot);
+    } else {
+      let clickTimer = null;
+      el.addEventListener('click', () => {
+        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; openPanel(spot.id); return; }
+        clickTimer = setTimeout(() => { clickTimer = null; openStatusModal(spot.id); }, 230);
+      });
+      el.addEventListener('dblclick', e => e.preventDefault());
+    }
+    map.appendChild(el);
+  });
+  updateStats();
+}
+
+function setupDrag(el, data) {
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('spot-delete') || e.target.classList.contains('label-delete') ||
+        e.target.classList.contains('spot-resize') || e.target.classList.contains('label-resize')) return;
+    e.preventDefault();
+    const rect = el.parentElement.getBoundingClientRect();
+    const ox = e.clientX - rect.left - data.x, oy = e.clientY - rect.top - data.y;
+    function onMove(ev) {
+      data.x = Math.max(0, Math.round((ev.clientX - rect.left - ox) / 10) * 10);
+      data.y = Math.max(0, Math.round((ev.clientY - rect.top - oy) / 10) * 10);
+      el.style.left = data.x + 'px'; el.style.top = data.y + 'px';
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+}
+
+function setupSpotResize(handle, spot, el) {
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX, startY = e.clientY, startW = spot.w||60, startH = spot.h||50;
+    function onMove(ev) {
+      spot.w = Math.max(40, Math.round((startW + ev.clientX - startX) / 10) * 10);
+      spot.h = Math.max(35, Math.round((startH + ev.clientY - startY) / 10) * 10);
+      el.style.width = spot.w + 'px'; el.style.height = spot.h + 'px';
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); renderMap(); }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+}
+
+function setupLabelResize(handle, lb, el) {
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX, startFs = lb.fs || 11;
+    function onMove(ev) { lb.fs = Math.max(8, Math.min(36, Math.round(startFs + (ev.clientX - startX) / 5))); el.style.fontSize = lb.fs + 'px'; }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+}
+
+function openStatusModal(id) {
+  const g = state.guests[id] || {};
+  if (g.status && g.status !== 'free') { openPanel(id); return; }
+  pendingStatusSpotId = id;
+  const spot = state.spots.find(s => s.id === id);
+  document.getElementById('status-modal-title').textContent = 'Spot ' + spot.label;
+  document.getElementById('status-modal').classList.add('open');
+}
+function closeStatusModal() { document.getElementById('status-modal').classList.remove('open'); pendingStatusSpotId = null; }
+
+document.getElementById('sbtn-reserved').onclick = () => {
+  if (!pendingStatusSpotId) return;
+  if (!state.guests[pendingStatusSpotId]) state.guests[pendingStatusSpotId] = {};
+  state.guests[pendingStatusSpotId].status = 'reserved';
+  const sid = pendingStatusSpotId; closeStatusModal(); saveState(); renderMap(); openPanel(sid);
+};
+document.getElementById('sbtn-occupied').onclick = () => {
+  if (!pendingStatusSpotId) return;
+  if (!state.guests[pendingStatusSpotId]) state.guests[pendingStatusSpotId] = {};
+  state.guests[pendingStatusSpotId].status = 'occupied';
+  const sid = pendingStatusSpotId; closeStatusModal(); saveState(); renderMap(); openPanel(sid);
+};
+document.getElementById('sbtn-cancel').onclick = closeStatusModal;
+
+function openPanel(id) {
+  activeSpotId = id;
+  const spot = state.spots.find(s => s.id === id);
+  const g = state.guests[id] || {};
+  document.getElementById('panel-title').textContent = 'Spot ' + spot.label;
+  document.getElementById('field-name').value = g.name || '';
+  document.getElementById('field-from').value = g.from || '';
+  document.getElementById('field-to').value = g.to || '';
+  document.getElementById('field-notes').value = g.notes || '';
+  const status = g.status || 'free';
+  document.getElementById('panel-status-badge').innerHTML = `<span class="status-badge ${status}">${status.charAt(0).toUpperCase()+status.slice(1)}</span>`;
+  document.getElementById('panel').classList.add('open');
+}
+function closePanel() { document.getElementById('panel').classList.remove('open'); activeSpotId = null; }
+
+document.getElementById('panel-close').onclick = closePanel;
+document.getElementById('btn-save').onclick = () => {
+  if (!activeSpotId) return;
+  if (!state.guests[activeSpotId]) state.guests[activeSpotId] = {};
+  const g = state.guests[activeSpotId];
+  g.name = document.getElementById('field-name').value.trim();
+  g.from = document.getElementById('field-from').value;
+  g.to = document.getElementById('field-to').value;
+  g.notes = document.getElementById('field-notes').value.trim();
+  saveState(); renderMap(); closePanel();
+};
+document.getElementById('btn-free').onclick = () => {
+  if (!activeSpotId) return;
+  if (!state.guests[activeSpotId]) state.guests[activeSpotId] = {};
+  state.guests[activeSpotId].status = 'free';
+  saveState(); renderMap(); closePanel();
+};
+document.getElementById('btn-change-status').onclick = () => {
+  if (!activeSpotId) return;
+  pendingStatusSpotId = activeSpotId;
+  const spot = state.spots.find(s => s.id === activeSpotId);
+  document.getElementById('status-modal-title').textContent = 'Spot ' + spot.label;
+  closePanel();
+  document.getElementById('status-modal').classList.add('open');
+};
+
+function deleteSpot(id) { if (!confirm('Delete this spot?')) return; state.spots = state.spots.filter(s => s.id !== id); saveState(); renderMap(); }
+function deleteLabel(id) { if (!confirm('Delete this label?')) return; state.labels = state.labels.filter(l => l.id !== id); saveState(); renderMap(); }
+
+document.getElementById('btn-edit-toggle').onclick = () => {
+  editMode = !editMode;
+  document.getElementById('btn-edit-toggle').classList.toggle('active', editMode);
+  document.getElementById('edit-panel').classList.toggle('visible', editMode);
+  if (editMode) { document.getElementById('map-width').value = state.mapW; document.getElementById('map-height').value = state.mapH; }
+  renderMap();
+};
+document.getElementById('btn-done-edit').onclick = () => {
+  editMode = false;
+  document.getElementById('btn-edit-toggle').classList.remove('active');
+  document.getElementById('edit-panel').classList.remove('visible');
+  renderMap();
+};
+document.getElementById('btn-add-spot').onclick = () => {
+  const label = document.getElementById('new-spot-label').value.trim() || '?';
+  state.spots.push({ id: 's_' + Date.now(), label, x:100, y:100, w:60, h:50 });
+  document.getElementById('new-spot-label').value = '';
+  saveState(); renderMap();
+};
+document.getElementById('btn-add-label').onclick = () => {
+  const text = prompt('Area label text:'); if (!text) return;
+  state.labels.push({ id: 'l_' + Date.now(), text, x:200, y:200, fs:11 });
+  saveState(); renderMap();
+};
+document.getElementById('btn-apply-size').onclick = () => {
+  state.mapW = Math.max(400, parseInt(document.getElementById('map-width').value) || 960);
+  state.mapH = Math.max(300, parseInt(document.getElementById('map-height').value) || 760);
+  saveState(); applyMapSize();
+};
+document.getElementById('btn-export').onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = 'campsite_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(url);
+};
+document.getElementById('btn-import').onclick = () => document.getElementById('import-file').click();
+document.getElementById('import-file').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (imported.spots) { state = imported; if (!state.mapW) { state.mapW=960; state.mapH=760; } saveState(); renderMap(); alert('Backup loaded!'); }
+      else alert('Invalid backup file.');
+    } catch { alert('Could not read file.'); }
+  };
+  reader.readAsText(file); e.target.value = '';
+});
+
+loadState();
+</script>
+</body>
+</html>
