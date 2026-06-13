@@ -5,145 +5,188 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Campsite Manager</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #f0ede6; min-height: 100vh; }
-  header { background: #2d5a27; color: white; padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  header h1 { font-size: 18px; font-weight: 600; flex: 1; }
-  .header-stats { font-size: 13px; opacity: 0.85; }
-  .sync-indicator { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
-  .sync-ok { background: #27ae60; color: white; }
-  .sync-err { background: #c0392b; color: white; }
-  .sync-pending { background: #f39c12; color: white; }
-  .btn { padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; font-family: inherit; }
-  .btn-white { background: white; color: #2d5a27; }
-  .btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,0.6); }
-  .btn-outline.active { background: rgba(255,255,255,0.2); border-color: white; }
-  .btn-red { background: #c0392b; color: white; }
-  .btn-blue { background: #2471a3; color: white; }
-  .btn-green { background: #27ae60; color: white; }
-  .btn-gray { background: #f5f5f5; color: #333; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #f0ede6; min-height: 100vh; }
 
-  .legend { display: flex; gap: 16px; padding: 10px 20px; background: white; border-bottom: 1px solid #ddd; font-size: 12px; align-items: center; flex-wrap: wrap; }
-  .legend-item { display: flex; align-items: center; gap: 6px; }
-  .legend-swatch { width: 20px; height: 16px; border-radius: 3px; border: 2px solid; }
-  .legend-swatch.free { background: white; border-color: #5a8a54; }
-  .legend-swatch.reserved { background: #d6eaf8; border-color: #2471a3; }
-  .legend-swatch.occupied { background: #fde8e6; border-color: #c0392b; }
-  .legend-swatch.departure { background: #fef9e7; border-color: #d4ac0d; }
+header { background: #2d5a27; color: white; padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+header h1 { font-size: 17px; font-weight: 600; }
+.sync-indicator { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+.sync-ok { background: #27ae60; color: white; }
+.sync-err { background: #c0392b; color: white; }
+.sync-pending { background: #f39c12; color: white; }
+.btn { padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 500; font-family: inherit; }
+.btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,0.6); }
+.btn-outline.active { background: rgba(255,255,255,0.2); }
+.btn-white { background: white; color: #2d5a27; }
+.btn-red { background: #c0392b; color: white; }
+.btn-green { background: #27ae60; color: white; }
+.btn-gray { background: #f5f5f5; color: #333; }
 
-  #map-container { padding: 20px; overflow: auto; }
-  #map {
-    position: relative; background: #e8f5e3; border: 2px solid #b5d4a8; border-radius: 10px;
-    background-image: linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-  #map.edit-mode { cursor: crosshair; }
+/* Stats bar */
+#stats-bar { background: #1e3d1b; color: white; padding: 6px 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.stat-pill { padding: 3px 10px; border-radius: 20px; font-weight: 600; font-size: 11px; display: flex; align-items: center; gap: 5px; }
+.stat-pill.tent { background: #5d4037; color: #fff; }
+.stat-pill.noelec { background: #1565c0; color: #fff; }
+.stat-pill.elec { background: #f57f17; color: #fff; }
+.stat-pill.lodge { background: #4a148c; color: #fff; }
+.stat-pill span { opacity: 0.8; font-weight: 400; }
 
-  .spot {
-    position: absolute; border: 2px solid #5a8a54; background: white; border-radius: 5px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    cursor: pointer; user-select: none; transition: transform 0.1s, box-shadow 0.1s;
-    font-weight: 600; color: #2d5a27; overflow: hidden;
-  }
-  .spot:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); transform: scale(1.04); }
-  .spot.reserved { background: #d6eaf8; border-color: #2471a3; color: #2471a3; }
-  .spot.occupied { background: #fde8e6; border-color: #c0392b; color: #c0392b; }
-  .spot.departure { background: #fef9e7; border-color: #d4ac0d; color: #b7950b; }
-  .spot.departure .spot-status-dot { background: #d4ac0d; }
-  .spot-label-text { font-weight: 600; pointer-events: none; }
-  .spot-name { font-weight: 400; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; max-width: 90%; pointer-events: none; }
-  .spot-status-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 2px; pointer-events: none; }
-  .spot.reserved .spot-status-dot { background: #2471a3; }
-  .spot.occupied .spot-status-dot { background: #c0392b; }
+/* Legend */
+.legend { display: flex; gap: 12px; padding: 8px 16px; background: white; border-bottom: 1px solid #ddd; font-size: 11px; align-items: center; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.leg-sw { width: 18px; height: 14px; border-radius: 3px; border: 2px solid; }
+.leg-sw.free { background: white; border-color: #5a8a54; }
+.leg-sw.reserved { background: #d6eaf8; border-color: #2471a3; }
+.leg-sw.occupied { background: #fde8e6; border-color: #c0392b; }
+.leg-sw.departure { background: #fef9e7; border-color: #d4ac0d; }
 
-  .spot-delete { display: none; position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; background: #c0392b; color: white; border-radius: 50%; font-size: 12px; line-height: 18px; text-align: center; cursor: pointer; font-weight: 700; z-index: 10; }
-  .spot-resize { display: none; position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #2d5a27; cursor: se-resize; border-radius: 2px 0 4px 0; }
-  .edit-mode .spot .spot-delete { display: block; }
-  .edit-mode .spot .spot-resize { display: block; }
+/* Map */
+#map-container { padding: 16px; overflow: auto; }
+#map {
+  position: relative; background: #e8f5e3; border: 2px solid #b5d4a8; border-radius: 10px;
+  background-image: linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+#map.edit-mode { cursor: crosshair; }
 
-  .label-box {
-    position: absolute; background: rgba(45,90,39,0.15); border: 1px dashed #5a8a54;
-    border-radius: 4px; padding: 3px 8px; font-weight: 600; color: #2d5a27;
-    white-space: nowrap; cursor: default; pointer-events: none;
-  }
-  .label-box.editable { pointer-events: all; cursor: move; }
-  .label-delete { display: none; position: absolute; top: -8px; right: -8px; width: 16px; height: 16px; background: #c0392b; color: white; border-radius: 50%; font-size: 11px; line-height: 16px; text-align: center; cursor: pointer; font-weight: 700; z-index: 10; }
-  .label-resize { display: none; position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #5a8a54; cursor: se-resize; border-radius: 2px 0 4px 0; }
-  .edit-mode .label-box .label-delete { display: block; }
-  .edit-mode .label-box .label-resize { display: block; }
+/* Spots */
+.spot {
+  position: absolute; border: 2px solid #5a8a54; background: white; border-radius: 5px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none; font-weight: 600; color: #2d5a27; overflow: visible;
+  transition: box-shadow 0.1s;
+}
+.spot:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.spot.reserved { background: #d6eaf8; border-color: #2471a3; color: #2471a3; }
+.spot.occupied { background: #fde8e6; border-color: #c0392b; color: #c0392b; }
+.spot.departure { background: #fef9e7; border-color: #d4ac0d; color: #b7950b; }
 
-  /* Map images */
-  .map-image {
-    position: absolute; cursor: default; pointer-events: none;
-    user-select: none;
-  }
-  .map-image img { width: 100%; height: 100%; object-fit: contain; display: block; }
-  .map-image.editable { pointer-events: all; cursor: move; }
-  .img-delete { display: none; position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; background: #c0392b; color: white; border-radius: 50%; font-size: 12px; line-height: 18px; text-align: center; cursor: pointer; font-weight: 700; z-index: 10; }
-  .img-resize { display: none; position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #555; cursor: se-resize; border-radius: 2px 0 4px 0; }
-  .edit-mode .map-image .img-delete { display: block; }
-  .edit-mode .map-image .img-resize { display: block; }
-  .map-image.editable { outline: 1.5px dashed #aaa; }
+/* spot type colour strip at bottom */
+.spot-type-strip { position: absolute; bottom: 0; left: 0; right: 0; height: 5px; border-radius: 0 0 3px 3px; }
+.type-tent .spot-type-strip { background: #5d4037; }
+.type-noelec .spot-type-strip { background: #1565c0; }
+.type-elec .spot-type-strip { background: #f57f17; }
+.type-lodge .spot-type-strip { background: #4a148c; }
+.type-reservation .spot-type-strip { background: #888; }
 
-  #status-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
-  #status-modal.open { display: flex; }
-  #status-box { background: white; border-radius: 12px; padding: 28px 32px; width: 300px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
-  #status-box h3 { font-size: 17px; margin-bottom: 6px; color: #222; }
-  #status-box p { font-size: 13px; color: #777; margin-bottom: 22px; }
-  .status-btns { display: flex; flex-direction: column; gap: 10px; }
-  .status-btns button { padding: 12px; border-radius: 8px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
-  #sbtn-reserved { background: #d6eaf8; color: #2471a3; border: 2px solid #2471a3; }
-  #sbtn-occupied { background: #fde8e6; color: #c0392b; border: 2px solid #c0392b; }
-  #sbtn-cancel { background: #f0f0f0; color: #555; }
+.spot-label-text { font-weight: 600; pointer-events: none; line-height: 1.1; }
+.spot-name { font-weight: 400; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; pointer-events: none; }
+.spot-status-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 1px; pointer-events: none; }
+.spot.reserved .spot-status-dot { background: #2471a3; }
+.spot.occupied .spot-status-dot { background: #c0392b; }
+.spot.departure .spot-status-dot { background: #d4ac0d; }
 
-  #panel { position: fixed; top: 0; right: -400px; width: 380px; height: 100%; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); transition: right 0.3s ease; z-index: 100; display: flex; flex-direction: column; }
-  #panel.open { right: 0; }
-  #panel-header { background: #2d5a27; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
-  #panel-header h2 { font-size: 16px; }
-  #panel-close { background: none; border: none; color: white; font-size: 22px; cursor: pointer; line-height: 1; }
-  #panel-body { padding: 20px; flex: 1; overflow-y: auto; }
-  .field-group { margin-bottom: 16px; }
-  .field-group label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .field-group input { width: 100%; padding: 9px 12px; border: 1.5px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; }
-  .field-group input:focus { border-color: #2d5a27; }
-  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
-  .status-badge.reserved { background: #d6eaf8; color: #2471a3; }
-  .status-badge.occupied { background: #fde8e6; color: #c0392b; }
-  .status-badge.departure { background: #fef9e7; color: #b7950b; }
-  #panel-footer { padding: 16px 20px; border-top: 1px solid #eee; display: flex; gap: 10px; flex-wrap: wrap; }
-  #panel-footer button { flex: 1; min-width: 80px; padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; }
-  #btn-save { background: #2d5a27; color: white; }
-  #btn-free { background: #f5f5f5; color: #333; }
-  #btn-change-status { background: #eee; color: #444; }
+.spot-delete { display: none; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; background: #c0392b; color: white; border-radius: 50%; font-size: 12px; line-height: 18px; text-align: center; cursor: pointer; font-weight: 700; z-index: 20; }
+.spot-resize { display: none; position: absolute; bottom: -1px; right: -1px; width: 11px; height: 11px; background: #2d5a27; cursor: se-resize; border-radius: 0 0 4px 0; z-index: 20; }
+.spot-rotate { display: none; position: absolute; top: -9px; left: -9px; width: 18px; height: 18px; background: #2471a3; color: white; border-radius: 50%; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; font-weight: 700; z-index: 20; }
+.edit-mode .spot .spot-delete { display: block; }
+.edit-mode .spot .spot-resize { display: block; }
+.edit-mode .spot .spot-rotate { display: block; }
 
-  #edit-panel { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: white; border: 1.5px solid #ddd; border-radius: 10px; padding: 12px 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: none; align-items: center; gap: 10px; z-index: 99; flex-wrap: wrap; justify-content: center; }
-  #edit-panel.visible { display: flex; }
-  #edit-panel label { font-size: 13px; color: #555; font-weight: 500; }
-  #edit-panel input[type=text], #edit-panel input[type=number] { padding: 6px 10px; border: 1.5px solid #ddd; border-radius: 5px; font-size: 13px; font-family: inherit; }
-  #edit-panel input[type=text] { width: 80px; }
-  #edit-panel input[type=number] { width: 70px; }
-  #edit-panel input:focus { border-color: #2d5a27; outline: none; }
-  .edit-sep { width: 1px; height: 28px; background: #ddd; }
+/* Labels */
+.label-box {
+  position: absolute; background: rgba(45,90,39,0.15); border: 1px dashed #5a8a54;
+  border-radius: 4px; padding: 3px 8px; font-weight: 600; color: #2d5a27;
+  white-space: nowrap; pointer-events: none; transform-origin: top left;
+}
+.label-box.editable { pointer-events: all; cursor: move; outline: 1px dashed #aaa; }
+.label-delete { display: none; position: absolute; top: -9px; right: -9px; width: 16px; height: 16px; background: #c0392b; color: white; border-radius: 50%; font-size: 11px; line-height: 16px; text-align: center; cursor: pointer; font-weight: 700; z-index: 20; }
+.label-resize { display: none; position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #5a8a54; cursor: se-resize; border-radius: 2px 0 4px 0; }
+.label-rotate { display: none; position: absolute; top: -9px; left: -9px; width: 16px; height: 16px; background: #2471a3; color: white; border-radius: 50%; font-size: 11px; line-height: 16px; text-align: center; cursor: pointer; font-weight: 700; z-index: 20; }
+.edit-mode .label-box .label-delete { display: block; }
+.edit-mode .label-box .label-resize { display: block; }
+.edit-mode .label-box .label-rotate { display: block; }
+
+/* Images */
+.map-image { position: absolute; pointer-events: none; user-select: none; transform-origin: top left; }
+.map-image img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+.map-image.editable { pointer-events: all; cursor: move; outline: 1.5px dashed #aaa; }
+.img-delete { display: none; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; background: #c0392b; color: white; border-radius: 50%; font-size: 12px; line-height: 18px; text-align: center; cursor: pointer; font-weight: 700; z-index: 20; }
+.img-resize { display: none; position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; background: #555; cursor: se-resize; border-radius: 0 0 4px 0; }
+.img-rotate { display: none; position: absolute; top: -9px; left: -9px; width: 18px; height: 18px; background: #2471a3; color: white; border-radius: 50%; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; z-index: 20; }
+.edit-mode .map-image .img-delete { display: block; }
+.edit-mode .map-image .img-resize { display: block; }
+.edit-mode .map-image .img-rotate { display: block; }
+
+/* Status modal */
+#status-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
+#status-modal.open { display: flex; }
+#status-box { background: white; border-radius: 12px; padding: 24px 28px; width: 300px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+#status-box h3 { font-size: 16px; margin-bottom: 4px; }
+#status-box p { font-size: 12px; color: #777; margin-bottom: 16px; }
+.status-btns { display: flex; flex-direction: column; gap: 8px; }
+.status-btns button { padding: 10px; border-radius: 8px; border: 2px solid; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+#sbtn-reserved { background: #d6eaf8; color: #2471a3; border-color: #2471a3; }
+#sbtn-occupied { background: #fde8e6; color: #c0392b; border-color: #c0392b; }
+#sbtn-cancel { background: #f0f0f0; color: #555; border-color: #ccc; }
+
+/* Panel */
+#panel { position: fixed; top: 0; right: -400px; width: 380px; height: 100%; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); transition: right 0.3s; z-index: 100; display: flex; flex-direction: column; }
+#panel.open { right: 0; }
+#panel-header { background: #2d5a27; color: white; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+#panel-header h2 { font-size: 15px; }
+#panel-close { background: none; border: none; color: white; font-size: 22px; cursor: pointer; }
+#panel-body { padding: 18px; flex: 1; overflow-y: auto; }
+.field-group { margin-bottom: 14px; }
+.field-group label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+.field-group input, .field-group select { width: 100%; padding: 8px 11px; border: 1.5px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; outline: none; }
+.field-group input:focus, .field-group select:focus { border-color: #2d5a27; }
+.status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+.status-badge.reserved { background: #d6eaf8; color: #2471a3; }
+.status-badge.occupied { background: #fde8e6; color: #c0392b; }
+.status-badge.departure { background: #fef9e7; color: #b7950b; }
+#panel-footer { padding: 14px 18px; border-top: 1px solid #eee; display: flex; gap: 8px; flex-wrap: wrap; }
+#panel-footer button { flex: 1; min-width: 80px; padding: 9px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
+#btn-save { background: #2d5a27; color: white; }
+#btn-free { background: #f5f5f5; color: #333; }
+#btn-change-status { background: #eee; color: #444; }
+
+/* Edit bar */
+#edit-panel { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: white; border: 1.5px solid #ddd; border-radius: 10px; padding: 10px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: none; align-items: center; gap: 8px; z-index: 99; flex-wrap: wrap; justify-content: center; }
+#edit-panel.visible { display: flex; }
+#edit-panel label { font-size: 12px; color: #555; font-weight: 500; }
+#edit-panel input[type=text], #edit-panel input[type=number] { padding: 5px 9px; border: 1.5px solid #ddd; border-radius: 5px; font-size: 12px; font-family: inherit; }
+#edit-panel input[type=text] { width: 75px; }
+#edit-panel input[type=number] { width: 65px; }
+#edit-panel input:focus { border-color: #2d5a27; outline: none; }
+.esep { width: 1px; height: 26px; background: #ddd; }
+
+/* spot type legend in panel */
+.type-legend { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.type-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 2px solid transparent; opacity: 0.6; transition: opacity 0.15s, border-color 0.15s; }
+.type-badge.selected { opacity: 1; border-color: #222; }
+.type-badge.tent { background: #efebe9; color: #5d4037; }
+.type-badge.noelec { background: #e3f2fd; color: #1565c0; }
+.type-badge.elec { background: #fff8e1; color: #f57f17; }
+.type-badge.lodge { background: #f3e5f5; color: #4a148c; }
+.type-badge.reservation { background: #f5f5f5; color: #555; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>⛺ Campsite Manager</h1>
-  <span class="header-stats" id="stats">Loading...</span>
-  <span class="sync-indicator sync-pending" id="sync-status">⏳ Connecting...</span>
-  <button class="btn btn-outline" id="btn-edit-toggle">✏️ Edit layout</button>
-  <button class="btn btn-white" id="btn-import">📂 Load backup</button>
+  <span class="sync-indicator sync-pending" id="sync-status">Connecting...</span>
+  <button class="btn btn-outline" id="btn-edit-toggle">Edit layout</button>
+  <button class="btn btn-white" id="btn-import">Load backup</button>
   <input type="file" id="import-file" accept=".json" style="display:none">
 </header>
 
+<div id="stats-bar">
+  <div class="stat-pill tent" id="stat-tent">Tent: <span id="sval-tent">-</span></div>
+  <div class="stat-pill noelec" id="stat-noelec">No Elec: <span id="sval-noelec">-</span></div>
+  <div class="stat-pill elec" id="stat-elec">With Elec: <span id="sval-elec">-</span></div>
+  <div class="stat-pill lodge" id="stat-lodge">Lodge: <span id="sval-lodge">-</span></div>
+</div>
+
 <div class="legend">
-  <span style="font-weight:600;font-size:12px;color:#555;">Legend:</span>
-  <div class="legend-item"><div class="legend-swatch free"></div> Free</div>
-  <div class="legend-item"><div class="legend-swatch reserved"></div> Reserved</div>
-  <div class="legend-item"><div class="legend-swatch occupied"></div> Occupied</div>
-  <div class="legend-item"><div class="legend-swatch departure"></div> Departure today</div>
-  <span style="font-size:12px;color:#888;margin-left:8px;">Click = set status &nbsp;|&nbsp; Double-click = guest info</span>
+  <span style="font-weight:600;color:#555;">Status:</span>
+  <div class="legend-item"><div class="leg-sw free"></div> Free</div>
+  <div class="legend-item"><div class="leg-sw reserved"></div> Reserved</div>
+  <div class="legend-item"><div class="leg-sw occupied"></div> Occupied</div>
+  <div class="legend-item"><div class="leg-sw departure"></div> Departure today</div>
+  <span style="color:#888;margin-left:8px;">Click = status | Double-click = guest info</span>
+  <span style="margin-left:4px;">Type strip: <span style="background:#5d4037;color:white;padding:1px 6px;border-radius:3px;font-size:10px;">Tent</span> <span style="background:#1565c0;color:white;padding:1px 6px;border-radius:3px;font-size:10px;">No Elec</span> <span style="background:#f57f17;color:white;padding:1px 6px;border-radius:3px;font-size:10px;">Elec</span> <span style="background:#4a148c;color:white;padding:1px 6px;border-radius:3px;font-size:10px;">Lodge</span></span>
 </div>
 
 <div id="map-container"><div id="map"></div></div>
@@ -151,10 +194,10 @@
 <div id="status-modal">
   <div id="status-box">
     <h3 id="status-modal-title">Spot —</h3>
-    <p>Set this spot's status:</p>
+    <p>Set status:</p>
     <div class="status-btns">
-      <button id="sbtn-reserved">🔵 Reserved</button>
-      <button id="sbtn-occupied">🔴 Occupied</button>
+      <button id="sbtn-reserved">Reserved</button>
+      <button id="sbtn-occupied">Occupied</button>
       <button id="sbtn-cancel">Cancel</button>
     </div>
   </div>
@@ -164,15 +207,25 @@
   <div id="panel-header"><h2 id="panel-title">Spot —</h2><button id="panel-close">×</button></div>
   <div id="panel-body">
     <div id="panel-status-badge"></div>
+    <div class="field-group">
+      <label>Spot type</label>
+      <div class="type-legend" id="type-selector">
+        <div class="type-badge tent" data-type="tent">Tent</div>
+        <div class="type-badge noelec" data-type="noelec">No Electricity</div>
+        <div class="type-badge elec" data-type="elec">With Electricity</div>
+        <div class="type-badge lodge" data-type="lodge">Lodge</div>
+        <div class="type-badge reservation" data-type="reservation">Reservations</div>
+      </div>
+    </div>
     <div class="field-group"><label>Guest name</label><input type="text" id="field-name" placeholder="e.g. Svensson family" /></div>
     <div class="field-group"><label>Arrival date</label><input type="date" id="field-from" /></div>
     <div class="field-group"><label>Departure date</label><input type="date" id="field-to" /></div>
     <div class="field-group"><label>Notes</label><input type="text" id="field-notes" placeholder="e.g. 2 adults, dog" /></div>
   </div>
   <div id="panel-footer">
-    <button id="btn-save">💾 Save</button>
-    <button id="btn-change-status">🔄 Status</button>
-    <button id="btn-free">✖ Mark free</button>
+    <button id="btn-save">Save</button>
+    <button id="btn-change-status">Change status</button>
+    <button id="btn-free">Mark free</button>
   </div>
 </div>
 
@@ -180,60 +233,45 @@
   <label>New spot:</label>
   <input type="text" id="new-spot-label" placeholder="e.g. 35" />
   <button class="btn btn-green" id="btn-add-spot">+ Spot</button>
-  <div class="edit-sep"></div>
-  <button class="btn" style="color:#2d5a27;border:1.5px solid #2d5a27;background:white;" id="btn-add-label">+ Area label</button>
-  <div class="edit-sep"></div>
+  <div class="esep"></div>
+  <button class="btn" style="color:#2d5a27;border:1.5px solid #2d5a27;background:white;" id="btn-add-label">+ Label</button>
   <button class="btn" style="color:#7d5a00;border:1.5px solid #c8970a;background:#fffbe6;" id="btn-add-image">+ Image</button>
   <input type="file" id="image-upload" accept="image/*" style="display:none">
-  <div class="edit-sep"></div>
-  <label>Map size:</label>
-  <label style="font-size:12px;color:#888;">W</label>
-  <input type="number" id="map-width" value="960" min="400" max="3000" step="40" />
-  <label style="font-size:12px;color:#888;">H</label>
-  <input type="number" id="map-height" value="760" min="300" max="3000" step="40" />
-  <button class="btn btn-gray" id="btn-apply-size">Apply</button>
-  <div class="edit-sep"></div>
-  <span style="font-size:12px;color:#888;">Drag to move · corner to resize</span>
+  <div class="esep"></div>
+  <label style="font-size:11px;color:#888;">W</label>
+  <input type="number" id="map-width" value="1360" min="400" max="3000" step="40" />
+  <label style="font-size:11px;color:#888;">H</label>
+  <input type="number" id="map-height" value="820" min="300" max="3000" step="40" />
+  <button class="btn btn-gray" id="btn-apply-size">Apply size</button>
+  <div class="esep"></div>
+  <span style="font-size:11px;color:#888;">Drag=move | corner=resize | circle=rotate</span>
   <button class="btn btn-red" id="btn-done-edit">Done</button>
-  <button class="btn btn-white" style="color:#2d5a27;border:1.5px solid #2d5a27;" id="btn-export">💾 Save backup</button>
+  <button class="btn btn-white" style="color:#2d5a27;border:1.5px solid #2d5a27;" id="btn-export">Save backup</button>
 </div>
 
 <script>
-// ── Firebase config ──────────────────────────────────────────────
 const DB_URL = 'https://campsite-manager-nas-default-rtdb.europe-west1.firebasedatabase.app';
-
-let syncEnabled = false;
+let lastRemoteHash = null;
 let ignoreNextRemoteUpdate = false;
 
-function dbUrl(path) {
-  return DB_URL + '/' + path + '.json';
-}
-function dbFetch(path) {
-  return fetch(dbUrl(path)).then(r => r.json());
-}
+function dbUrl(path) { return DB_URL + '/' + path + '.json'; }
+function dbFetch(path) { return fetch(dbUrl(path)).then(r => r.json()); }
 function dbSet(path, data) {
-  return fetch(dbUrl(path), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).then(r => r.json());
+  return fetch(dbUrl(path), { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) }).then(r => r.json());
 }
-function dbPatch(path, data) {
-  return fetch(dbUrl(path), {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).then(r => r.json());
-}
-
-function setSyncStatus(status, msg) {
+function setSyncStatus(s, msg) {
   const el = document.getElementById('sync-status');
-  el.textContent = msg;
-  el.className = 'sync-indicator sync-' + status;
+  el.textContent = msg; el.className = 'sync-indicator sync-' + s;
 }
-
-// Poll Firebase every 5 seconds for changes from other computers
-let lastRemoteHash = null;
+async function pushToFirebase() {
+  ignoreNextRemoteUpdate = true;
+  setSyncStatus('pending', 'Saving...');
+  try {
+    await dbSet('', state);
+    lastRemoteHash = JSON.stringify(state);
+    setSyncStatus('ok', 'Synced');
+  } catch(e) { setSyncStatus('err', 'Offline - saved locally'); }
+}
 function startPolling() {
   setInterval(async () => {
     try {
@@ -243,102 +281,102 @@ function startPolling() {
       if (hash !== lastRemoteHash) {
         lastRemoteHash = hash;
         if (!ignoreNextRemoteUpdate) {
-          // Merge remote into local state without overwriting if we're mid-edit
           if (remote.guests) state.guests = remote.guests;
           if (remote.spots) state.spots = remote.spots;
           if (remote.labels) state.labels = remote.labels;
+          if (remote.images) state.images = remote.images;
           if (remote.mapW) { state.mapW = remote.mapW; state.mapH = remote.mapH; }
-          localStorage.setItem('campsite_v4', JSON.stringify(state));
+          localStorage.setItem('campsite_v5', JSON.stringify(state));
           renderMap();
-          setSyncStatus('ok', '🟢 Synced');
+          setSyncStatus('ok', 'Synced');
         }
         ignoreNextRemoteUpdate = false;
       }
-    } catch(e) {
-      setSyncStatus('err', '🔴 Offline');
-    }
+    } catch(e) { setSyncStatus('err', 'Offline'); }
   }, 5000);
 }
 
-async function pushToFirebase() {
-  ignoreNextRemoteUpdate = true;
-  setSyncStatus('pending', '⏳ Saving...');
-  try {
-    await dbSet('', state);
-    const hash = JSON.stringify(state);
-    lastRemoteHash = hash;
-    setSyncStatus('ok', '🟢 Synced');
-  } catch(e) {
-    setSyncStatus('err', '🔴 Offline – saved locally');
-  }
-}
-
-// ── Default data ─────────────────────────────────────────────────
+// ── Default data from backup ──────────────────────────────────────
 const DEFAULT_SPOTS = [{"h":50,"id":"s1","label":"1","w":60,"x":320,"y":150},{"h":50,"id":"s2","label":"2","w":60,"x":390,"y":150},{"h":50,"id":"s3","label":"3","w":60,"x":460,"y":150},{"h":50,"id":"s4","label":"4","w":60,"x":530,"y":150},{"h":50,"id":"s5","label":"5","w":60,"x":600,"y":150},{"h":50,"id":"s6","label":"6","w":60,"x":670,"y":150},{"h":50,"id":"s7","label":"7","w":60,"x":740,"y":150},{"h":50,"id":"s8","label":"8","w":60,"x":810,"y":150},{"h":50,"id":"s8a","label":"8A","w":60,"x":880,"y":150},{"h":50,"id":"s34","label":"34","w":60,"x":950,"y":150},{"h":50,"id":"s30","label":"30","w":60,"x":290,"y":310},{"h":50,"id":"s29","label":"29","w":60,"x":360,"y":310},{"h":50,"id":"s28","label":"28","w":60,"x":500,"y":310},{"h":50,"id":"s27","label":"27","w":60,"x":570,"y":310},{"h":50,"id":"s26","label":"26","w":60,"x":640,"y":310},{"h":50,"id":"sIII","label":"III","w":60,"x":710,"y":330},{"h":50,"id":"s25","label":"25","w":60,"x":780,"y":320},{"h":50,"id":"s31","label":"31","w":60,"x":210,"y":470},{"h":50,"id":"s22","label":"22","w":60,"x":730,"y":440},{"h":50,"id":"s23","label":"23","w":60,"x":790,"y":390},{"h":50,"id":"s24","label":"24","w":60,"x":850,"y":340},{"h":50,"id":"sIV","label":"IV","w":60,"x":610,"y":480},{"h":50,"id":"s19","label":"19","w":60,"x":400,"y":480},{"h":50,"id":"s20","label":"20","w":60,"x":470,"y":480},{"h":50,"id":"s21","label":"21","w":60,"x":540,"y":480},{"h":50,"id":"s32","label":"32","w":60,"x":210,"y":590},{"h":50,"id":"s12","label":"12","w":60,"x":830,"y":630},{"h":50,"id":"s11","label":"11","w":60,"x":900,"y":630},{"h":50,"id":"s10","label":"10","w":60,"x":970,"y":630},{"h":50,"id":"s9","label":"9","w":60,"x":1040,"y":630},{"h":50,"id":"s18","label":"18","w":60,"x":280,"y":710},{"h":50,"id":"s17","label":"17","w":60,"x":350,"y":710},{"h":50,"id":"s16","label":"16","w":60,"x":420,"y":710},{"h":50,"id":"s15","label":"15","w":60,"x":490,"y":710},{"h":50,"id":"s18p","label":"18+","w":60,"x":210,"y":710},{"h":50,"id":"s14","label":"14","w":60,"x":560,"y":710},{"h":50,"id":"s13","label":"13","w":60,"x":630,"y":710},{"h":50,"id":"s33","label":"33","w":60,"x":700,"y":710},{"h":50,"id":"sV","label":"V","w":60,"x":770,"y":710},{"h":50,"id":"sII","label":"II","w":60,"x":950,"y":710},{"h":50,"id":"sI","label":"I","w":60,"x":1040,"y":710},{"h":50,"id":"sVI","label":"VI","w":60,"x":1210,"y":290},{"h":50,"id":"s_1781352073710","label":"anders","w":60,"x":1020,"y":150},{"h":50,"id":"s_1781354782811","label":"?","w":60,"x":150,"y":310},{"h":50,"id":"s_1781354837874","label":"?","w":60,"x":80,"y":310},{"h":50,"id":"s_1781361645890","label":"u1","w":60,"x":150,"y":160},{"h":50,"id":"s_1781361651866","label":"u2","w":60,"x":240,"y":160},{"h":50,"id":"s_1781361670290","label":"u3","w":60,"x":80,"y":160},{"h":50,"id":"s_1781361680507","label":"u4","w":60,"x":10,"y":160},{"h":35,"id":"s_1781361718146","label":"talt","w":50,"x":240,"y":40},{"h":35,"id":"s_1781361739282","label":"talt","w":50,"x":180,"y":40},{"h":35,"id":"s_1781361783234","label":"talt","w":50,"x":120,"y":40},{"h":35,"id":"s_1781361801562","label":"talt","w":50,"x":40,"y":70},{"h":35,"id":"s_1781361821122","label":"talt","w":40,"x":660,"y":390},{"h":35,"id":"s_1781361837658","label":"talt","w":40,"x":600,"y":370},{"h":35,"id":"s_1781361855530","label":"talt","w":40,"x":590,"y":420},{"h":35,"id":"s_1781361872274","label":"talt","w":40,"x":530,"y":370},{"h":35,"id":"s_1781361889554","label":"talt","w":40,"x":480,"y":420},{"h":35,"id":"s_1781361924082","label":"talt","w":50,"x":410,"y":380},{"h":50,"id":"s_1781364843974","label":"?","w":60,"x":220,"y":310},{"h":50,"id":"s_1781364862934","label":"?","w":60,"x":430,"y":310}];
-const DEFAULT_LABELS = [{"fs":14,"id":"l_storanget","text":"Storanget","x":160,"y":10},{"fs":11,"id":"l_brygga","text":"Brygga","x":840,"y":100},{"fs":11,"id":"l_fiske","text":"Fiske","x":1100,"y":100},{"fs":11,"id":"l_kanot","text":"Kanot","x":1160,"y":100},{"fs":23,"id":"l_recept","text":"Recept","x":1210,"y":240},{"fs":18,"id":"l_kok","text":"Kök","x":1220,"y":400},{"fs":17,"id":"l_toalett","text":"Toalett","x":1220,"y":430},{"fs":18,"id":"l_dusch","text":"Dusch","x":1220,"y":460}];
-const DEFAULT_MAP = { w: 1360, h: 820 };
+const DEFAULT_LABELS = [{"fs":14,"id":"l_storanget","text":"Storanget","x":160,"y":10,"rot":0},{"fs":11,"id":"l_brygga","text":"Brygga","x":910,"y":100,"rot":0},{"fs":11,"id":"l_fiske","text":"Fiske","x":1100,"y":100,"rot":0},{"fs":11,"id":"l_kanot","text":"Kanot","x":1160,"y":100,"rot":0},{"fs":21,"id":"l_recept","text":"Recept","x":1210,"y":210,"rot":0},{"fs":18,"id":"l_kok","text":"Kök","x":1220,"y":400,"rot":0},{"fs":17,"id":"l_toalett","text":"Toalett","x":1220,"y":430,"rot":0},{"fs":18,"id":"l_dusch","text":"Dusch","x":1220,"y":460,"rot":0}];
+const DEFAULT_GUESTS = {"s1":{"from":"2026-06-13","name":"Rojek","notes":"","status":"occupied","to":"2026-06-15"},"s13":{"status":"free"},"s14":{"status":"occupied"},"s15":{"status":"occupied"},"s16":{"status":"reserved"},"s17":{"status":"occupied"},"s18":{"status":"occupied"},"s18p":{"status":"occupied"},"s19":{"status":"free"},"s2":{"from":"2026-06-12","name":"","notes":"","status":"free","to":"2026-06-13"},"s20":{"from":"2026-06-13","name":"Skoglund, Marie Rogsta-Fröllnd","notes":"","status":"occupied","to":"2026-06-14"},"s22":{"from":"2026-06-13","name":"THAM HOLST, SUSAN","notes":"","status":"reserved","to":"2026-06-14"},"s24":{"from":"2026-06-13","name":"Hultman, Jenny","notes":"","status":"occupied","to":"2026-06-15"},"s25":{"from":"","name":"michel","notes":"","status":"occupied","to":""},"s27":{"from":"2026-06-13","name":"victoria olofsson","notes":"","status":"reserved","to":"2026-06-14"},"s28":{"from":"2026-06-13","name":"Jansen Viktor","notes":"","status":"occupied","to":"2026-06-15"},"s29":{"status":"occupied"},"s3":{"from":"2026-06-12","name":"van griethuizen","notes":"","status":"occupied","to":"2026-06-14"},"s30":{"from":"","name":"","notes":"","status":"occupied","to":""},"s34":{"from":"2026-06-13","name":"bauma","notes":"","status":"occupied","to":"2026-06-27"},"s4":{"status":"free"},"s5":{"from":"2026-06-12","name":"baruth","notes":"","status":"occupied","to":"2026-06-14"},"s6":{"from":"2026-06-12","name":"knufman","notes":"","status":"occupied","to":"2026-06-14"},"s7":{"from":"2026-06-12","name":"Elfring, Klaus","notes":"","status":"occupied","to":"2026-06-20"},"s9":{"from":"","name":"","notes":"","status":"free","to":""},"sI":{"from":"","name":"","notes":"","status":"occupied","to":""},"sII":{"from":"","name":"","notes":"","status":"occupied","to":""},"sIII":{"from":"2026-06-12","name":"Olsson, Annelie","notes":"","status":"occupied","to":"2026-06-14"},"sIV":{"from":"","name":"","notes":"","status":"reserved","to":""},"sV":{"status":"occupied"},"s_1781352073710":{"status":"occupied"},"s_1781354782811":{"status":"free"},"s_1781361651866":{"from":"2026-06-13","name":"Andersson, Alexandra","notes":"","status":"reserved","to":"2026-06-14"},"s_1781361680507":{"status":"occupied"},"s_1781364843974":{"from":"2026-06-11","name":"Eva-Lena Sönksen","notes":"","status":"occupied","to":"2026-06-14"}};
+const DEFAULT_IMAGES = [{"h":50,"id":"img_1781368219350","src":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEwAACxMBAJqcGAAAEwBJREFUeJztnXm4XVV1wH/vvQwvL8MLNEAKkoHJBIMMwTIVAjURomj5JIlMImUQa7VFESsVPoGPRKulaRUVEApIUSmDgAMqDhFiVUoCYYhJmDMokQAhkeRlvP1jveu7774z7H3O3mffe+76fd/6kvfuPWuvfd5e5+xxLVAURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEURVEUJQtvB64IbYSiNCIzgI3AD0MboiiNxvuArUAFeDSwLYrSUMykzzkqwJqw5ihK43AE8CZ9zlEBtgMdIY1SlEZgb+Bl+jtHVfYMaJeiBGcoMtaIco4K8mZRGoT20Aa0IPOAqQmfjyvKEEVpNP6G+DdHVS4JZp0yAH2DFEcXcIPB9yb6NkQxRx2kOP4F2Nfge+ogSsuxF7CJ9O5VBXg2kI2KEoxvYOYcFWAHMtOlKC3BnsA2zB2kAkwOYqkyAB2D5Gdwyuf/AAyy1KkO0iCog+TjEuDwhM+HABdm0HtQNnMUpXG4FFgMtCV852TsulZVucub1YpSABchDfmDKd+7nWwOssKL1YpSAGchjXgtybNNg4ANZHOQncAoP+Yrij+Oo+/8xryU7/4V2ZyjKtPcm6/YooN0cyYC99A3a3VzyvePz1le0uBfURqKLmAJfU/3Rwyu+S753iB3Oq2BonjkJvo33ksNrnmafA7yMskzZIrSEFQH5bVyaMo1HcCWiOtsZT+3VVEUt+yDhOOpbbQbSD83Po78zlEBznNaG8UaHaTH0wHcBoyo+/3jyIbCJEY7suEkR3qUjKiDxHMxcHTE75cbXDvckQ0zsN/HpThEHSSaA4CrYj5ba3C9KwfpJtpJlYJQB4nmy8Svkm80uN7l7NNsh7oUS9RBBnIccGLC500GOtY7sgVgDtrNCoY6yEDSooqMNdDxhgtDetkdeKdDfYqSmfHIRsGkqdeFBnp2T9FhK/e5qJyi5OUy0htrDzAsRU875kEaTGQnumioNABPYNZgk8YoVX5tqMtUrndQP0XJzETMG+u1BvrmWugzkR1IFipFCcIFmDfW35O+3WSqhT5TWYBOrCiB+CZ2jXV6ir42ZFuKaye52kFdFcWaZdg11DsMdJ5rqdNUPopuhVcKpBPp49s00m3AW1L0DgVWWeo1le8Au+est6IYcRDZGul8A90fz6jbRP5IeldPUXKTNX5VD5JOLYlhyAZHX06yFV1p94bOiAh7ZbxuKHBNync2Azdm1G/CYKS7NcZjGUqL82nyPcXnpOg/Mqd+EzFZm1Es0TeIUH9q0JabgIMTPne5eTGO84BdCiinpVAHESo5rx8B/JToDLVtZAtgbUsnMKuAcpQWxGSiolVZGapbKpTrncCL0z1YUBOyrvdsQDZphqbUA/ZWdZC3A38X2ohesr5BoC9wXCiqgepKS6s6SNZ+vw/yOMi9ZAxn44hqRq7S0qoOkqdRuibPlppXCRvi9YGAZRdCqzrIS6ENqCGvs97mxAp7tgL/FahsxTOHEH6KtCorc9alE0ldULTdc3ParTQ4IfZdRYmLzZnzC7Z5ASWf3lXkHHZtptmQkje6434Ul67uQYo5zak0ACeSP/ibC9nbQV3u9mzjVuBySr7uoQzkFMIGNqtgl0E3Dp/jqgdJTs2mlJxpyJRpKAeZ7qgetzq263EkXKsmE1LYBz/xmdJkGe7WZXbDzTb4X+E3zpijFJgCqAAAAABJRU5ErkJggg==","w":60,"x":860,"y":240,"rot":0}];
 
-let state = { spots:[], labels:[], images:[], guests:{}, mapW:1360, mapH:820 };
+// SPOT TYPES
+const SPOT_TYPES = {
+  tent:        { label: 'Tent',            color: '#5d4037', bg: '#efebe9' },
+  noelec:      { label: 'No Electricity',  color: '#1565c0', bg: '#e3f2fd' },
+  elec:        { label: 'With Electricity',color: '#f57f17', bg: '#fff8e1' },
+  lodge:       { label: 'Lodge',           color: '#4a148c', bg: '#f3e5f5' },
+  reservation: { label: 'Reservations',    color: '#555',    bg: '#f5f5f5' },
+};
+
+let state = { spots:[], labels:[], images:[], guests:{}, spotTypes:{}, mapW:1360, mapH:820 };
 let editMode = false;
 let activeSpotId = null;
 let pendingStatusSpotId = null;
 
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function isDepartureToday(g) { return g && g.to && g.to === todayStr() && g.status && g.status !== 'free'; }
+
 async function loadState() {
-  setSyncStatus('pending', '⏳ Connecting...');
+  setSyncStatus('pending', 'Connecting...');
   try {
     const remote = await dbFetch('');
     if (remote && remote.spots && remote.spots.length > 0) {
       state = remote;
-      if (!state.mapW) { state.mapW = 1360; state.mapH = 820; }
-      if (!state.images) state.images = [];
+      if (!state.mapW) { state.mapW=1360; state.mapH=820; }
+      if (!state.images) state.images=[];
+      if (!state.spotTypes) state.spotTypes={};
       lastRemoteHash = JSON.stringify(remote);
-      setSyncStatus('ok', '🟢 Synced');
+      setSyncStatus('ok','Synced');
     } else {
-      // First time: load from localStorage or use defaults
-      const saved = localStorage.getItem('campsite_v4');
+      const saved = localStorage.getItem('campsite_v5');
       if (saved) { state = JSON.parse(saved); } else { resetToDefault(); }
-      // Push local data up to Firebase
       await pushToFirebase();
     }
   } catch(e) {
-    setSyncStatus('err', '🔴 Offline – using local data');
-    const saved = localStorage.getItem('campsite_v4');
+    setSyncStatus('err','Offline');
+    const saved = localStorage.getItem('campsite_v5');
     if (saved) { state = JSON.parse(saved); } else { resetToDefault(); }
   }
-  localStorage.setItem('campsite_v4', JSON.stringify(state));
-  renderMap();
-  startPolling();
+  localStorage.setItem('campsite_v5', JSON.stringify(state));
+  renderMap(); startPolling();
 }
 
 function resetToDefault() {
   state.spots = JSON.parse(JSON.stringify(DEFAULT_SPOTS));
   state.labels = JSON.parse(JSON.stringify(DEFAULT_LABELS));
-  state.images = []; state.guests = {}; state.mapW = 1360; state.mapH = 820;
+  state.images = JSON.parse(JSON.stringify(DEFAULT_IMAGES));
+  state.guests = JSON.parse(JSON.stringify(DEFAULT_GUESTS));
+  state.spotTypes = {}; state.mapW=1360; state.mapH=820;
 }
 
 function saveState() {
-  localStorage.setItem('campsite_v4', JSON.stringify(state));
-  updateStats();
-  pushToFirebase();
+  localStorage.setItem('campsite_v5', JSON.stringify(state));
+  updateStats(); pushToFirebase();
 }
-
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-function isDepartureToday(g) { return g && g.to && g.to === todayStr() && g.status && g.status !== 'free'; }
 
 function updateStats() {
   const today = todayStr();
-  const total = state.spots.length;
-  const res = Object.values(state.guests).filter(g => g && g.status === 'reserved' && g.to !== today).length;
-  const occ = Object.values(state.guests).filter(g => g && g.status === 'occupied' && g.to !== today).length;
-  const dep = Object.values(state.guests).filter(g => isDepartureToday(g)).length;
-  document.getElementById('stats').textContent = `${occ} occupied · ${res} reserved · ${dep} departing · ${total-occ-res-dep} free · ${total} total`;
+  const types = ['tent','noelec','elec','lodge'];
+  types.forEach(t => {
+    const spotsOfType = (state.spots||[]).filter(s => (state.spotTypes||{})[s.id] === t);
+    const total = spotsOfType.length;
+    const occ = spotsOfType.filter(s => {
+      const g = state.guests[s.id]||{};
+      return (g.status==='occupied'||g.status==='reserved') && !isDepartureToday(g);
+    }).length;
+    document.getElementById('sval-'+t).textContent = `${occ} / ${total}`;
+  });
 }
 
 function applyMapSize() {
   const map = document.getElementById('map');
-  map.style.width = state.mapW + 'px';
-  map.style.minHeight = state.mapH + 'px';
+  map.style.width = state.mapW+'px'; map.style.minHeight = state.mapH+'px';
 }
+
+function rot(deg) { return deg ? `rotate(${deg}deg)` : ''; }
 
 function renderMap() {
   const map = document.getElementById('map');
@@ -346,283 +384,276 @@ function renderMap() {
   applyMapSize();
   if (editMode) map.classList.add('edit-mode'); else map.classList.remove('edit-mode');
 
-  // Render images (below spots so they appear behind)
-  (state.images || []).forEach(img => {
+  // Images
+  (state.images||[]).forEach(img => {
     const el = document.createElement('div');
-    el.className = 'map-image' + (editMode ? ' editable' : '');
-    el.style.left = img.x + 'px'; el.style.top = img.y + 'px';
-    el.style.width = (img.w || 80) + 'px'; el.style.height = (img.h || 80) + 'px';
-    el.style.zIndex = 1;
-    const image = document.createElement('img');
-    image.src = img.src; image.draggable = false;
+    el.className = 'map-image' + (editMode?' editable':'');
+    el.style.cssText = `left:${img.x}px;top:${img.y}px;width:${img.w||80}px;height:${img.h||80}px;z-index:1;transform:${rot(img.rot||0)}`;
+    const image = document.createElement('img'); image.src=img.src; image.draggable=false;
     el.appendChild(image);
     if (editMode) {
-      const del = document.createElement('div');
-      del.className = 'img-delete'; del.textContent = '×';
-      del.addEventListener('click', e => { e.stopPropagation(); deleteImage(img.id); });
-      el.appendChild(del);
-      const resz = document.createElement('div');
-      resz.className = 'img-resize';
-      setupImgResize(resz, img, el); el.appendChild(resz);
+      addHandle(el,'img-delete','×',()=>deleteImage(img.id));
+      addHandle(el,'img-rotate','↻',null); setupRotate(el.lastChild, img, el, 'img');
+      addHandle(el,'img-resize','',null); setupResize(el.lastChild, img, el, 'img');
       setupDrag(el, img);
     }
     map.appendChild(el);
   });
 
-  (state.labels || []).forEach(lb => {
+  // Labels
+  (state.labels||[]).forEach(lb => {
     const el = document.createElement('div');
-    el.className = 'label-box' + (editMode ? ' editable' : '');
-    el.style.left = lb.x + 'px'; el.style.top = lb.y + 'px';
-    el.style.fontSize = (lb.fs || 11) + 'px';
-    const span = document.createElement('span');
-    span.textContent = lb.text; el.appendChild(span);
+    el.className = 'label-box'+(editMode?' editable':'');
+    el.style.cssText = `left:${lb.x}px;top:${lb.y}px;font-size:${lb.fs||11}px;transform:${rot(lb.rot||0)}`;
+    const span = document.createElement('span'); span.textContent=lb.text; el.appendChild(span);
     if (editMode) {
-      const del = document.createElement('div');
-      del.className = 'label-delete'; del.textContent = '×';
-      del.addEventListener('click', e => { e.stopPropagation(); deleteLabel(lb.id); });
-      el.appendChild(del);
-      const resz = document.createElement('div');
-      resz.className = 'label-resize';
-      setupLabelResize(resz, lb, el); el.appendChild(resz);
+      addHandle(el,'label-delete','×',()=>deleteLabel(lb.id));
+      addHandle(el,'label-rotate','↻',null); setupRotate(el.lastChild, lb, el, 'label');
+      addHandle(el,'label-resize','',null); setupLabelResize(el.lastChild, lb, el);
       setupDrag(el, lb);
     }
     map.appendChild(el);
   });
 
-  (state.spots || []).forEach(spot => {
-    const g = state.guests[spot.id] || {};
-    const status = g.status || 'free';
+  // Spots
+  (state.spots||[]).forEach(spot => {
+    const g = state.guests[spot.id]||{};
+    const status = g.status||'free';
     const departing = isDepartureToday(g);
+    const stype = (state.spotTypes||{})[spot.id]||'';
+    const statusClass = departing ? 'departure' : (status!=='free' ? status : '');
     const el = document.createElement('div');
-    el.className = 'spot' + (departing ? ' departure' : (status !== 'free' ? ' ' + status : ''));
-    el.style.left = spot.x + 'px'; el.style.top = spot.y + 'px';
-    el.style.width = (spot.w || 60) + 'px'; el.style.height = (spot.h || 50) + 'px';
-    const fs = Math.max(9, Math.min(14, Math.floor((spot.w || 60) / 5)));
-    el.style.fontSize = fs + 'px';
-    const lbl = document.createElement('div');
-    lbl.className = 'spot-label-text'; lbl.textContent = spot.label; el.appendChild(lbl);
-    if (g.name) {
-      const nm = document.createElement('div');
-      nm.className = 'spot-name'; nm.style.maxWidth = ((spot.w||60)-8)+'px';
-      nm.style.fontSize = Math.max(8, fs-2)+'px'; nm.textContent = g.name; el.appendChild(nm);
-    }
-    if (status !== 'free' || departing) {
-      const dot = document.createElement('div'); dot.className = 'spot-status-dot'; el.appendChild(dot);
-    }
+    el.className = 'spot' + (statusClass?' '+statusClass:'') + (stype?' type-'+stype:'');
+    const fs = Math.max(9,Math.min(14,Math.floor((spot.w||60)/5)));
+    el.style.cssText = `left:${spot.x}px;top:${spot.y}px;width:${spot.w||60}px;height:${spot.h||50}px;font-size:${fs}px;transform:${rot(spot.rot||0)};z-index:2`;
+
+    const lbl = document.createElement('div'); lbl.className='spot-label-text'; lbl.textContent=spot.label; el.appendChild(lbl);
+    if (g.name) { const nm=document.createElement('div'); nm.className='spot-name'; nm.style.maxWidth=((spot.w||60)-8)+'px'; nm.style.fontSize=Math.max(8,fs-2)+'px'; nm.textContent=g.name; el.appendChild(nm); }
+    if (statusClass) { const dot=document.createElement('div'); dot.className='spot-status-dot'; el.appendChild(dot); }
+    // colour strip
+    const strip = document.createElement('div'); strip.className='spot-type-strip'; el.appendChild(strip);
+
     if (editMode) {
-      const del = document.createElement('div');
-      del.className = 'spot-delete'; del.textContent = '×';
-      del.addEventListener('click', e => { e.stopPropagation(); deleteSpot(spot.id); });
-      el.appendChild(del);
-      const resz = document.createElement('div');
-      resz.className = 'spot-resize';
-      setupSpotResize(resz, spot, el); el.appendChild(resz);
+      addHandle(el,'spot-delete','×',()=>deleteSpot(spot.id));
+      addHandle(el,'spot-rotate','↻',null); setupRotate(el.lastChild, spot, el, 'spot');
+      addHandle(el,'spot-resize','',null); setupResize(el.lastChild, spot, el, 'spot');
       setupDrag(el, spot);
     } else {
-      let clickTimer = null;
-      el.addEventListener('click', () => {
-        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; openPanel(spot.id); return; }
-        clickTimer = setTimeout(() => { clickTimer = null; openStatusModal(spot.id); }, 230);
+      let clickTimer=null;
+      el.addEventListener('click',()=>{
+        if(clickTimer){clearTimeout(clickTimer);clickTimer=null;openPanel(spot.id);return;}
+        clickTimer=setTimeout(()=>{clickTimer=null;openStatusModal(spot.id);},230);
       });
-      el.addEventListener('dblclick', e => e.preventDefault());
+      el.addEventListener('dblclick',e=>e.preventDefault());
     }
     map.appendChild(el);
   });
   updateStats();
 }
 
+function addHandle(parent, cls, text, onClick) {
+  const h = document.createElement('div');
+  h.className = cls; h.textContent = text;
+  if (onClick) h.addEventListener('click', e=>{e.stopPropagation();onClick();});
+  parent.appendChild(h);
+  return h;
+}
+
+const DRAG_IGNORE = ['spot-delete','label-delete','img-delete','spot-resize','label-resize','img-resize','spot-rotate','label-rotate','img-rotate'];
 function setupDrag(el, data) {
-  el.addEventListener('mousedown', e => {
-    if (e.target.classList.contains('spot-delete') || e.target.classList.contains('label-delete') || e.target.classList.contains('img-delete') ||
-        e.target.classList.contains('spot-resize') || e.target.classList.contains('label-resize') || e.target.classList.contains('img-resize')) return;
+  el.addEventListener('mousedown', e=>{
+    if (DRAG_IGNORE.some(c=>e.target.classList.contains(c))) return;
     e.preventDefault();
-    const rect = el.parentElement.getBoundingClientRect();
-    const ox = e.clientX - rect.left - data.x, oy = e.clientY - rect.top - data.y;
-    function onMove(ev) {
-      data.x = Math.max(0, Math.round((ev.clientX - rect.left - ox) / 10) * 10);
-      data.y = Math.max(0, Math.round((ev.clientY - rect.top - oy) / 10) * 10);
-      el.style.left = data.x + 'px'; el.style.top = data.y + 'px';
+    const rect=el.parentElement.getBoundingClientRect();
+    const ox=e.clientX-rect.left-data.x, oy=e.clientY-rect.top-data.y;
+    function onMove(ev){
+      data.x=Math.max(0,Math.round((ev.clientX-rect.left-ox)/10)*10);
+      data.y=Math.max(0,Math.round((ev.clientY-rect.top-oy)/10)*10);
+      el.style.left=data.x+'px'; el.style.top=data.y+'px';
     }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);saveState();}
+    document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
   });
 }
 
-function setupSpotResize(handle, spot, el) {
-  handle.addEventListener('mousedown', e => {
+function setupResize(handle, data, el, type) {
+  handle.addEventListener('mousedown', e=>{
     e.preventDefault(); e.stopPropagation();
-    const startX = e.clientX, startY = e.clientY, startW = spot.w||60, startH = spot.h||50;
-    function onMove(ev) {
-      spot.w = Math.max(40, Math.round((startW + ev.clientX - startX) / 10) * 10);
-      spot.h = Math.max(35, Math.round((startH + ev.clientY - startY) / 10) * 10);
-      el.style.width = spot.w + 'px'; el.style.height = spot.h + 'px';
+    const sx=e.clientX,sy=e.clientY,sw=data.w||60,sh=data.h||(type==='label'?20:50);
+    const minW=type==='label'?30:30, minH=type==='label'?14:25;
+    function onMove(ev){
+      data.w=Math.max(minW,Math.round((sw+ev.clientX-sx)/10)*10);
+      data.h=Math.max(minH,Math.round((sh+ev.clientY-sy)/10)*10);
+      el.style.width=data.w+'px'; el.style.height=data.h+'px';
     }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); renderMap(); }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);saveState();renderMap();}
+    document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
   });
 }
-
-function setupImgResize(handle, img, el) {
-  handle.addEventListener('mousedown', e => {
-    e.preventDefault(); e.stopPropagation();
-    const startX = e.clientX, startY = e.clientY, startW = img.w||80, startH = img.h||80;
-    function onMove(ev) {
-      img.w = Math.max(20, Math.round((startW + ev.clientX - startX) / 10) * 10);
-      img.h = Math.max(20, Math.round((startH + ev.clientY - startY) / 10) * 10);
-      el.style.width = img.w + 'px'; el.style.height = img.h + 'px';
-    }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
-  });
-}
-
-function deleteImage(id) {
-  if (!confirm('Delete this image?')) return;
-  state.images = (state.images || []).filter(i => i.id !== id);
-  saveState(); renderMap();
-}
-
-document.getElementById('btn-add-image').onclick = () => document.getElementById('image-upload').click();
-document.getElementById('image-upload').addEventListener('change', e => {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    if (!state.images) state.images = [];
-    state.images.push({ id: 'img_' + Date.now(), src: ev.target.result, x: 100, y: 100, w: 80, h: 80 });
-    saveState(); renderMap();
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
-});
 
 function setupLabelResize(handle, lb, el) {
-  handle.addEventListener('mousedown', e => {
+  handle.addEventListener('mousedown', e=>{
     e.preventDefault(); e.stopPropagation();
-    const startX = e.clientX, startFs = lb.fs || 11;
-    function onMove(ev) { lb.fs = Math.max(8, Math.min(36, Math.round(startFs + (ev.clientX - startX) / 5))); el.style.fontSize = lb.fs + 'px'; }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    const sx=e.clientX, sfs=lb.fs||11;
+    function onMove(ev){lb.fs=Math.max(8,Math.min(36,Math.round(sfs+(ev.clientX-sx)/5)));el.style.fontSize=lb.fs+'px';}
+    function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);saveState();}
+    document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
+  });
+}
+
+function setupRotate(handle, data, el, type) {
+  handle.addEventListener('click', e=>{
+    e.stopPropagation();
+    data.rot = ((data.rot||0) + 15) % 360;
+    el.style.transform = rot(data.rot);
+    saveState();
   });
 }
 
 function openStatusModal(id) {
-  const g = state.guests[id] || {};
-  if (g.status && g.status !== 'free') { openPanel(id); return; }
-  pendingStatusSpotId = id;
-  const spot = state.spots.find(s => s.id === id);
-  document.getElementById('status-modal-title').textContent = 'Spot ' + spot.label;
+  const g=state.guests[id]||{};
+  if (g.status && g.status!=='free') { openPanel(id); return; }
+  pendingStatusSpotId=id;
+  const spot=state.spots.find(s=>s.id===id);
+  document.getElementById('status-modal-title').textContent='Spot '+spot.label;
   document.getElementById('status-modal').classList.add('open');
 }
-function closeStatusModal() { document.getElementById('status-modal').classList.remove('open'); pendingStatusSpotId = null; }
+function closeStatusModal(){document.getElementById('status-modal').classList.remove('open');pendingStatusSpotId=null;}
 
-document.getElementById('sbtn-reserved').onclick = () => {
-  if (!pendingStatusSpotId) return;
-  if (!state.guests[pendingStatusSpotId]) state.guests[pendingStatusSpotId] = {};
-  state.guests[pendingStatusSpotId].status = 'reserved';
-  const sid = pendingStatusSpotId; closeStatusModal(); saveState(); renderMap(); openPanel(sid);
+document.getElementById('sbtn-reserved').onclick=()=>{
+  if(!pendingStatusSpotId)return;
+  if(!state.guests[pendingStatusSpotId])state.guests[pendingStatusSpotId]={};
+  state.guests[pendingStatusSpotId].status='reserved';
+  const sid=pendingStatusSpotId; closeStatusModal(); saveState(); renderMap(); openPanel(sid);
 };
-document.getElementById('sbtn-occupied').onclick = () => {
-  if (!pendingStatusSpotId) return;
-  if (!state.guests[pendingStatusSpotId]) state.guests[pendingStatusSpotId] = {};
-  state.guests[pendingStatusSpotId].status = 'occupied';
-  const sid = pendingStatusSpotId; closeStatusModal(); saveState(); renderMap(); openPanel(sid);
+document.getElementById('sbtn-occupied').onclick=()=>{
+  if(!pendingStatusSpotId)return;
+  if(!state.guests[pendingStatusSpotId])state.guests[pendingStatusSpotId]={};
+  state.guests[pendingStatusSpotId].status='occupied';
+  const sid=pendingStatusSpotId; closeStatusModal(); saveState(); renderMap(); openPanel(sid);
 };
-document.getElementById('sbtn-cancel').onclick = closeStatusModal;
+document.getElementById('sbtn-cancel').onclick=closeStatusModal;
 
 function openPanel(id) {
-  activeSpotId = id;
-  const spot = state.spots.find(s => s.id === id);
-  const g = state.guests[id] || {};
-  document.getElementById('panel-title').textContent = 'Spot ' + spot.label;
-  document.getElementById('field-name').value = g.name || '';
-  document.getElementById('field-from').value = g.from || '';
-  document.getElementById('field-to').value = g.to || '';
-  document.getElementById('field-notes').value = g.notes || '';
-  const status = g.status || 'free';
-  const departing = isDepartureToday(g);
-  const badgeClass = departing ? 'departure' : status;
-  const badgeText = departing ? '🟡 Departing today' : status.charAt(0).toUpperCase()+status.slice(1);
-  document.getElementById('panel-status-badge').innerHTML = `<span class="status-badge ${badgeClass}">${badgeText}</span>`;
+  activeSpotId=id;
+  const spot=state.spots.find(s=>s.id===id);
+  const g=state.guests[id]||{};
+  document.getElementById('panel-title').textContent='Spot '+spot.label;
+  document.getElementById('field-name').value=g.name||'';
+  document.getElementById('field-from').value=g.from||'';
+  document.getElementById('field-to').value=g.to||'';
+  document.getElementById('field-notes').value=g.notes||'';
+  const status=g.status||'free';
+  const departing=isDepartureToday(g);
+  const bc=departing?'departure':status;
+  const bt=departing?'Departing today':status.charAt(0).toUpperCase()+status.slice(1);
+  document.getElementById('panel-status-badge').innerHTML=`<span class="status-badge ${bc}">${bt}</span>`;
+  // Type selector
+  const curType=(state.spotTypes||{})[id]||'';
+  document.querySelectorAll('.type-badge').forEach(b=>b.classList.toggle('selected',b.dataset.type===curType));
   document.getElementById('panel').classList.add('open');
 }
-function closePanel() { document.getElementById('panel').classList.remove('open'); activeSpotId = null; }
+function closePanel(){document.getElementById('panel').classList.remove('open');activeSpotId=null;}
+document.getElementById('panel-close').onclick=closePanel;
 
-document.getElementById('panel-close').onclick = closePanel;
-document.getElementById('btn-save').onclick = () => {
-  if (!activeSpotId) return;
-  if (!state.guests[activeSpotId]) state.guests[activeSpotId] = {};
-  const g = state.guests[activeSpotId];
-  g.name = document.getElementById('field-name').value.trim();
-  g.from = document.getElementById('field-from').value;
-  g.to = document.getElementById('field-to').value;
-  g.notes = document.getElementById('field-notes').value.trim();
+// Type badge clicks
+document.querySelectorAll('.type-badge').forEach(b=>{
+  b.addEventListener('click',()=>{
+    if(!activeSpotId)return;
+    if(!state.spotTypes)state.spotTypes={};
+    const cur=(state.spotTypes||{})[activeSpotId];
+    // toggle off if same
+    state.spotTypes[activeSpotId] = (cur===b.dataset.type) ? '' : b.dataset.type;
+    document.querySelectorAll('.type-badge').forEach(x=>x.classList.toggle('selected',x.dataset.type===state.spotTypes[activeSpotId]));
+    saveState(); renderMap();
+  });
+});
+
+document.getElementById('btn-save').onclick=()=>{
+  if(!activeSpotId)return;
+  if(!state.guests[activeSpotId])state.guests[activeSpotId]={};
+  const g=state.guests[activeSpotId];
+  g.name=document.getElementById('field-name').value.trim();
+  g.from=document.getElementById('field-from').value;
+  g.to=document.getElementById('field-to').value;
+  g.notes=document.getElementById('field-notes').value.trim();
   saveState(); renderMap(); closePanel();
 };
-document.getElementById('btn-free').onclick = () => {
-  if (!activeSpotId) return;
-  state.guests[activeSpotId] = { status: 'free' };
+document.getElementById('btn-free').onclick=()=>{
+  if(!activeSpotId)return;
+  state.guests[activeSpotId]={status:'free'};
   saveState(); renderMap(); closePanel();
 };
-document.getElementById('btn-change-status').onclick = () => {
-  if (!activeSpotId) return;
-  pendingStatusSpotId = activeSpotId;
-  const spot = state.spots.find(s => s.id === activeSpotId);
-  document.getElementById('status-modal-title').textContent = 'Spot ' + spot.label;
+document.getElementById('btn-change-status').onclick=()=>{
+  if(!activeSpotId)return;
+  pendingStatusSpotId=activeSpotId;
+  const spot=state.spots.find(s=>s.id===activeSpotId);
+  document.getElementById('status-modal-title').textContent='Spot '+spot.label;
   closePanel();
   document.getElementById('status-modal').classList.add('open');
 };
 
-function deleteSpot(id) { if (!confirm('Delete this spot?')) return; state.spots = state.spots.filter(s => s.id !== id); saveState(); renderMap(); }
-function deleteLabel(id) { if (!confirm('Delete this label?')) return; state.labels = state.labels.filter(l => l.id !== id); saveState(); renderMap(); }
+function deleteSpot(id){if(!confirm('Delete?'))return;state.spots=state.spots.filter(s=>s.id!==id);saveState();renderMap();}
+function deleteLabel(id){if(!confirm('Delete?'))return;state.labels=state.labels.filter(l=>l.id!==id);saveState();renderMap();}
+function deleteImage(id){if(!confirm('Delete?'))return;state.images=(state.images||[]).filter(i=>i.id!==id);saveState();renderMap();}
 
-document.getElementById('btn-edit-toggle').onclick = () => {
-  editMode = !editMode;
-  document.getElementById('btn-edit-toggle').classList.toggle('active', editMode);
-  document.getElementById('edit-panel').classList.toggle('visible', editMode);
-  if (editMode) { document.getElementById('map-width').value = state.mapW; document.getElementById('map-height').value = state.mapH; }
+document.getElementById('btn-edit-toggle').onclick=()=>{
+  editMode=!editMode;
+  document.getElementById('btn-edit-toggle').classList.toggle('active',editMode);
+  document.getElementById('edit-panel').classList.toggle('visible',editMode);
+  if(editMode){document.getElementById('map-width').value=state.mapW;document.getElementById('map-height').value=state.mapH;}
   renderMap();
 };
-document.getElementById('btn-done-edit').onclick = () => {
-  editMode = false;
+document.getElementById('btn-done-edit').onclick=()=>{
+  editMode=false;
   document.getElementById('btn-edit-toggle').classList.remove('active');
   document.getElementById('edit-panel').classList.remove('visible');
   renderMap();
 };
-document.getElementById('btn-add-spot').onclick = () => {
-  const label = document.getElementById('new-spot-label').value.trim() || '?';
-  state.spots.push({ id: 's_' + Date.now(), label, x:100, y:100, w:60, h:50 });
-  document.getElementById('new-spot-label').value = '';
+document.getElementById('btn-add-spot').onclick=()=>{
+  const label=document.getElementById('new-spot-label').value.trim()||'?';
+  state.spots.push({id:'s_'+Date.now(),label,x:100,y:100,w:60,h:50,rot:0});
+  document.getElementById('new-spot-label').value='';
   saveState(); renderMap();
 };
-document.getElementById('btn-add-label').onclick = () => {
-  const text = prompt('Area label text:'); if (!text) return;
-  state.labels.push({ id: 'l_' + Date.now(), text, x:200, y:200, fs:11 });
+document.getElementById('btn-add-label').onclick=()=>{
+  const text=prompt('Label text:'); if(!text)return;
+  state.labels.push({id:'l_'+Date.now(),text,x:200,y:200,fs:14,rot:0});
   saveState(); renderMap();
 };
-document.getElementById('btn-apply-size').onclick = () => {
-  state.mapW = Math.max(400, parseInt(document.getElementById('map-width').value) || 960);
-  state.mapH = Math.max(300, parseInt(document.getElementById('map-height').value) || 760);
+document.getElementById('btn-apply-size').onclick=()=>{
+  state.mapW=Math.max(400,parseInt(document.getElementById('map-width').value)||1360);
+  state.mapH=Math.max(300,parseInt(document.getElementById('map-height').value)||820);
   saveState(); applyMapSize();
 };
-document.getElementById('btn-export').onclick = () => {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url;
-  a.download = 'campsite_backup_' + new Date().toISOString().slice(0,10) + '.json';
-  a.click(); URL.revokeObjectURL(url);
-};
-document.getElementById('btn-import').onclick = () => document.getElementById('import-file').click();
-document.getElementById('import-file').addEventListener('change', e => {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const imported = JSON.parse(ev.target.result);
-      if (imported.spots) { state = imported; if (!state.mapW) { state.mapW=960; state.mapH=760; } saveState(); renderMap(); alert('Backup loaded!'); }
-      else alert('Invalid backup file.');
-    } catch { alert('Could not read file.'); }
+document.getElementById('btn-add-image').onclick=()=>document.getElementById('image-upload').click();
+document.getElementById('image-upload').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    if(!state.images)state.images=[];
+    state.images.push({id:'img_'+Date.now(),src:ev.target.result,x:100,y:100,w:80,h:80,rot:0});
+    saveState(); renderMap();
   };
-  reader.readAsText(file); e.target.value = '';
+  reader.readAsDataURL(file); e.target.value='';
+});
+document.getElementById('btn-export').onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='campsite_backup_'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(url);
+};
+document.getElementById('btn-import').onclick=()=>document.getElementById('import-file').click();
+document.getElementById('import-file').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const imported=JSON.parse(ev.target.result);
+      if(imported.spots){state=imported;if(!state.mapW){state.mapW=1360;state.mapH=820;}if(!state.images)state.images=[];if(!state.spotTypes)state.spotTypes={};saveState();renderMap();alert('Backup loaded!');}
+      else alert('Invalid file.');
+    }catch{alert('Could not read file.');}
+  };
+  reader.readAsText(file); e.target.value='';
 });
 
 loadState();
