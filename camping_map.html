@@ -29,6 +29,7 @@
   .legend-swatch.free { background: white; border-color: #5a8a54; }
   .legend-swatch.reserved { background: #d6eaf8; border-color: #2471a3; }
   .legend-swatch.occupied { background: #fde8e6; border-color: #c0392b; }
+  .legend-swatch.departure { background: #fef9e7; border-color: #d4ac0d; }
 
   #map-container { padding: 20px; overflow: auto; }
   #map {
@@ -47,6 +48,8 @@
   .spot:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); transform: scale(1.04); }
   .spot.reserved { background: #d6eaf8; border-color: #2471a3; color: #2471a3; }
   .spot.occupied { background: #fde8e6; border-color: #c0392b; color: #c0392b; }
+  .spot.departure { background: #fef9e7; border-color: #d4ac0d; color: #b7950b; }
+  .spot.departure .spot-status-dot { background: #d4ac0d; }
   .spot-label-text { font-weight: 600; pointer-events: none; }
   .spot-name { font-weight: 400; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; max-width: 90%; pointer-events: none; }
   .spot-status-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 2px; pointer-events: none; }
@@ -93,6 +96,7 @@
   .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
   .status-badge.reserved { background: #d6eaf8; color: #2471a3; }
   .status-badge.occupied { background: #fde8e6; color: #c0392b; }
+  .status-badge.departure { background: #fef9e7; color: #b7950b; }
   #panel-footer { padding: 16px 20px; border-top: 1px solid #eee; display: flex; gap: 10px; flex-wrap: wrap; }
   #panel-footer button { flex: 1; min-width: 80px; padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; }
   #btn-save { background: #2d5a27; color: white; }
@@ -125,6 +129,7 @@
   <div class="legend-item"><div class="legend-swatch free"></div> Free</div>
   <div class="legend-item"><div class="legend-swatch reserved"></div> Reserved</div>
   <div class="legend-item"><div class="legend-swatch occupied"></div> Occupied</div>
+  <div class="legend-item"><div class="legend-swatch departure"></div> Departure today</div>
   <span style="font-size:12px;color:#888;margin-left:8px;">Click = set status &nbsp;|&nbsp; Double-click = guest info</span>
 </div>
 
@@ -253,37 +258,11 @@ async function pushToFirebase() {
 }
 
 // ── Default data ─────────────────────────────────────────────────
-const DEFAULT_SPOTS = [
-  {id:'s1',label:'1',x:120,y:150,w:60,h:50},{id:'s2',label:'2',x:185,y:150,w:60,h:50},
-  {id:'s3',label:'3',x:250,y:150,w:60,h:50},{id:'s4',label:'4',x:315,y:150,w:60,h:50},
-  {id:'s5',label:'5',x:380,y:150,w:60,h:50},{id:'s6',label:'6',x:445,y:150,w:60,h:50},
-  {id:'s7',label:'7',x:510,y:150,w:60,h:50},{id:'s8',label:'8',x:575,y:150,w:60,h:50},
-  {id:'s8a',label:'8A',x:650,y:150,w:60,h:50},{id:'s34',label:'34',x:700,y:230,w:60,h:50},
-  {id:'s30',label:'30',x:100,y:255,w:60,h:50},{id:'s29',label:'29',x:165,y:275,w:60,h:50},
-  {id:'s28',label:'28',x:230,y:295,w:60,h:50},{id:'s27',label:'27',x:310,y:315,w:60,h:50},
-  {id:'s26',label:'26',x:375,y:315,w:60,h:50},{id:'sIII',label:'III',x:450,y:335,w:60,h:50},
-  {id:'s25',label:'25',x:520,y:335,w:60,h:50},{id:'s31',label:'31',x:30,y:415,w:60,h:50},
-  {id:'s22',label:'22',x:450,y:415,w:60,h:50},{id:'s23',label:'23',x:515,y:415,w:60,h:50},
-  {id:'s24',label:'24',x:580,y:415,w:60,h:50},{id:'sIV',label:'IV',x:385,y:445,w:60,h:50},
-  {id:'s19',label:'19',x:165,y:475,w:60,h:50},{id:'s20',label:'20',x:230,y:475,w:60,h:50},
-  {id:'s21',label:'21',x:295,y:475,w:60,h:50},{id:'s32',label:'32',x:30,y:555,w:60,h:50},
-  {id:'s12',label:'12',x:465,y:575,w:60,h:50},{id:'s11',label:'11',x:535,y:575,w:60,h:50},
-  {id:'s10',label:'10',x:605,y:575,w:60,h:50},{id:'s9',label:'9',x:675,y:575,w:60,h:50},
-  {id:'s18',label:'18',x:30,y:625,w:60,h:50},{id:'s17',label:'17',x:95,y:625,w:60,h:50},
-  {id:'s16',label:'16',x:160,y:625,w:60,h:50},{id:'s15',label:'15',x:225,y:625,w:60,h:50},
-  {id:'s18p',label:'18+',x:30,y:670,w:60,h:50},{id:'s14',label:'14',x:255,y:665,w:60,h:50},
-  {id:'s13',label:'13',x:320,y:665,w:60,h:50},{id:'s33',label:'33',x:385,y:665,w:60,h:50},
-  {id:'sV',label:'V',x:465,y:665,w:60,h:50},{id:'sII',label:'II',x:540,y:665,w:60,h:50},
-  {id:'sI',label:'I',x:615,y:665,w:60,h:50},{id:'sVI',label:'VI',x:860,y:375,w:60,h:50},
-];
-const DEFAULT_LABELS = [
-  {id:'l_storanget',text:'Storanget',x:30,y:130,fs:11},{id:'l_brygga',text:'Brygga',x:718,y:120,fs:11},
-  {id:'l_fiske',text:'Fiske',x:790,y:155,fs:11},{id:'l_kanot',text:'Kanot',x:848,y:155,fs:11},
-  {id:'l_recept',text:'Recept',x:848,y:255,fs:11},{id:'l_kok',text:'Kök',x:858,y:440,fs:11},
-  {id:'l_toalett',text:'Toalett',x:845,y:490,fs:11},{id:'l_dusch',text:'Dusch',x:848,y:540,fs:11},
-];
+const DEFAULT_SPOTS = [{"h":50,"id":"s1","label":"1","w":60,"x":320,"y":150},{"h":50,"id":"s2","label":"2","w":60,"x":390,"y":150},{"h":50,"id":"s3","label":"3","w":60,"x":460,"y":150},{"h":50,"id":"s4","label":"4","w":60,"x":530,"y":150},{"h":50,"id":"s5","label":"5","w":60,"x":600,"y":150},{"h":50,"id":"s6","label":"6","w":60,"x":670,"y":150},{"h":50,"id":"s7","label":"7","w":60,"x":740,"y":150},{"h":50,"id":"s8","label":"8","w":60,"x":810,"y":150},{"h":50,"id":"s8a","label":"8A","w":60,"x":880,"y":150},{"h":50,"id":"s34","label":"34","w":60,"x":950,"y":150},{"h":50,"id":"s30","label":"30","w":60,"x":290,"y":310},{"h":50,"id":"s29","label":"29","w":60,"x":360,"y":310},{"h":50,"id":"s28","label":"28","w":60,"x":500,"y":310},{"h":50,"id":"s27","label":"27","w":60,"x":570,"y":310},{"h":50,"id":"s26","label":"26","w":60,"x":640,"y":310},{"h":50,"id":"sIII","label":"III","w":60,"x":710,"y":330},{"h":50,"id":"s25","label":"25","w":60,"x":780,"y":320},{"h":50,"id":"s31","label":"31","w":60,"x":210,"y":470},{"h":50,"id":"s22","label":"22","w":60,"x":730,"y":440},{"h":50,"id":"s23","label":"23","w":60,"x":790,"y":390},{"h":50,"id":"s24","label":"24","w":60,"x":850,"y":340},{"h":50,"id":"sIV","label":"IV","w":60,"x":610,"y":480},{"h":50,"id":"s19","label":"19","w":60,"x":400,"y":480},{"h":50,"id":"s20","label":"20","w":60,"x":470,"y":480},{"h":50,"id":"s21","label":"21","w":60,"x":540,"y":480},{"h":50,"id":"s32","label":"32","w":60,"x":210,"y":590},{"h":50,"id":"s12","label":"12","w":60,"x":830,"y":630},{"h":50,"id":"s11","label":"11","w":60,"x":900,"y":630},{"h":50,"id":"s10","label":"10","w":60,"x":970,"y":630},{"h":50,"id":"s9","label":"9","w":60,"x":1040,"y":630},{"h":50,"id":"s18","label":"18","w":60,"x":280,"y":710},{"h":50,"id":"s17","label":"17","w":60,"x":350,"y":710},{"h":50,"id":"s16","label":"16","w":60,"x":420,"y":710},{"h":50,"id":"s15","label":"15","w":60,"x":490,"y":710},{"h":50,"id":"s18p","label":"18+","w":60,"x":210,"y":710},{"h":50,"id":"s14","label":"14","w":60,"x":560,"y":710},{"h":50,"id":"s13","label":"13","w":60,"x":630,"y":710},{"h":50,"id":"s33","label":"33","w":60,"x":700,"y":710},{"h":50,"id":"sV","label":"V","w":60,"x":770,"y":710},{"h":50,"id":"sII","label":"II","w":60,"x":950,"y":710},{"h":50,"id":"sI","label":"I","w":60,"x":1040,"y":710},{"h":50,"id":"sVI","label":"VI","w":60,"x":1210,"y":290},{"h":50,"id":"s_1781352073710","label":"anders","w":60,"x":1020,"y":150},{"h":50,"id":"s_1781354782811","label":"?","w":60,"x":150,"y":310},{"h":50,"id":"s_1781354837874","label":"?","w":60,"x":80,"y":310},{"h":50,"id":"s_1781361645890","label":"u1","w":60,"x":150,"y":160},{"h":50,"id":"s_1781361651866","label":"u2","w":60,"x":240,"y":160},{"h":50,"id":"s_1781361670290","label":"u3","w":60,"x":80,"y":160},{"h":50,"id":"s_1781361680507","label":"u4","w":60,"x":10,"y":160},{"h":35,"id":"s_1781361718146","label":"talt","w":50,"x":240,"y":40},{"h":35,"id":"s_1781361739282","label":"talt","w":50,"x":180,"y":40},{"h":35,"id":"s_1781361783234","label":"talt","w":50,"x":120,"y":40},{"h":35,"id":"s_1781361801562","label":"talt","w":50,"x":40,"y":70},{"h":35,"id":"s_1781361821122","label":"talt","w":40,"x":660,"y":390},{"h":35,"id":"s_1781361837658","label":"talt","w":40,"x":600,"y":370},{"h":35,"id":"s_1781361855530","label":"talt","w":40,"x":590,"y":420},{"h":35,"id":"s_1781361872274","label":"talt","w":40,"x":530,"y":370},{"h":35,"id":"s_1781361889554","label":"talt","w":40,"x":480,"y":420},{"h":35,"id":"s_1781361924082","label":"talt","w":50,"x":410,"y":380},{"h":50,"id":"s_1781364843974","label":"?","w":60,"x":220,"y":310},{"h":50,"id":"s_1781364862934","label":"?","w":60,"x":430,"y":310}];
+const DEFAULT_LABELS = [{"fs":14,"id":"l_storanget","text":"Storanget","x":160,"y":10},{"fs":11,"id":"l_brygga","text":"Brygga","x":840,"y":100},{"fs":11,"id":"l_fiske","text":"Fiske","x":1100,"y":100},{"fs":11,"id":"l_kanot","text":"Kanot","x":1160,"y":100},{"fs":23,"id":"l_recept","text":"Recept","x":1210,"y":240},{"fs":18,"id":"l_kok","text":"Kök","x":1220,"y":400},{"fs":17,"id":"l_toalett","text":"Toalett","x":1220,"y":430},{"fs":18,"id":"l_dusch","text":"Dusch","x":1220,"y":460}];
+const DEFAULT_MAP = { w: 1360, h: 820 };
 
-let state = { spots:[], labels:[], guests:{}, mapW:960, mapH:760 };
+let state = { spots:[], labels:[], guests:{}, mapW:1360, mapH:820 };
 let editMode = false;
 let activeSpotId = null;
 let pendingStatusSpotId = null;
@@ -317,7 +296,7 @@ async function loadState() {
 function resetToDefault() {
   state.spots = JSON.parse(JSON.stringify(DEFAULT_SPOTS));
   state.labels = JSON.parse(JSON.stringify(DEFAULT_LABELS));
-  state.guests = {}; state.mapW = 960; state.mapH = 760;
+  state.guests = {}; state.mapW = 1360; state.mapH = 820;
 }
 
 function saveState() {
@@ -326,11 +305,16 @@ function saveState() {
   pushToFirebase();
 }
 
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function isDepartureToday(g) { return g && g.to && g.to === todayStr() && g.status && g.status !== 'free'; }
+
 function updateStats() {
+  const today = todayStr();
   const total = state.spots.length;
-  const res = Object.values(state.guests).filter(g => g && g.status === 'reserved').length;
-  const occ = Object.values(state.guests).filter(g => g && g.status === 'occupied').length;
-  document.getElementById('stats').textContent = `${occ} occupied · ${res} reserved · ${total-occ-res} free · ${total} total`;
+  const res = Object.values(state.guests).filter(g => g && g.status === 'reserved' && g.to !== today).length;
+  const occ = Object.values(state.guests).filter(g => g && g.status === 'occupied' && g.to !== today).length;
+  const dep = Object.values(state.guests).filter(g => isDepartureToday(g)).length;
+  document.getElementById('stats').textContent = `${occ} occupied · ${res} reserved · ${dep} departing · ${total-occ-res-dep} free · ${total} total`;
 }
 
 function applyMapSize() {
@@ -368,8 +352,9 @@ function renderMap() {
   (state.spots || []).forEach(spot => {
     const g = state.guests[spot.id] || {};
     const status = g.status || 'free';
+    const departing = isDepartureToday(g);
     const el = document.createElement('div');
-    el.className = 'spot' + (status !== 'free' ? ' ' + status : '');
+    el.className = 'spot' + (departing ? ' departure' : (status !== 'free' ? ' ' + status : ''));
     el.style.left = spot.x + 'px'; el.style.top = spot.y + 'px';
     el.style.width = (spot.w || 60) + 'px'; el.style.height = (spot.h || 50) + 'px';
     const fs = Math.max(9, Math.min(14, Math.floor((spot.w || 60) / 5)));
@@ -381,7 +366,7 @@ function renderMap() {
       nm.className = 'spot-name'; nm.style.maxWidth = ((spot.w||60)-8)+'px';
       nm.style.fontSize = Math.max(8, fs-2)+'px'; nm.textContent = g.name; el.appendChild(nm);
     }
-    if (status !== 'free') {
+    if (status !== 'free' || departing) {
       const dot = document.createElement('div'); dot.className = 'spot-status-dot'; el.appendChild(dot);
     }
     if (editMode) {
@@ -481,7 +466,10 @@ function openPanel(id) {
   document.getElementById('field-to').value = g.to || '';
   document.getElementById('field-notes').value = g.notes || '';
   const status = g.status || 'free';
-  document.getElementById('panel-status-badge').innerHTML = `<span class="status-badge ${status}">${status.charAt(0).toUpperCase()+status.slice(1)}</span>`;
+  const departing = isDepartureToday(g);
+  const badgeClass = departing ? 'departure' : status;
+  const badgeText = departing ? '🟡 Departing today' : status.charAt(0).toUpperCase()+status.slice(1);
+  document.getElementById('panel-status-badge').innerHTML = `<span class="status-badge ${badgeClass}">${badgeText}</span>`;
   document.getElementById('panel').classList.add('open');
 }
 function closePanel() { document.getElementById('panel').classList.remove('open'); activeSpotId = null; }
