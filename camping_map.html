@@ -72,6 +72,19 @@
   .edit-mode .label-box .label-delete { display: block; }
   .edit-mode .label-box .label-resize { display: block; }
 
+  /* Map images */
+  .map-image {
+    position: absolute; cursor: default; pointer-events: none;
+    user-select: none;
+  }
+  .map-image img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .map-image.editable { pointer-events: all; cursor: move; }
+  .img-delete { display: none; position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; background: #c0392b; color: white; border-radius: 50%; font-size: 12px; line-height: 18px; text-align: center; cursor: pointer; font-weight: 700; z-index: 10; }
+  .img-resize { display: none; position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #555; cursor: se-resize; border-radius: 2px 0 4px 0; }
+  .edit-mode .map-image .img-delete { display: block; }
+  .edit-mode .map-image .img-resize { display: block; }
+  .map-image.editable { outline: 1.5px dashed #aaa; }
+
   #status-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
   #status-modal.open { display: flex; }
   #status-box { background: white; border-radius: 12px; padding: 28px 32px; width: 300px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
@@ -170,6 +183,9 @@
   <div class="edit-sep"></div>
   <button class="btn" style="color:#2d5a27;border:1.5px solid #2d5a27;background:white;" id="btn-add-label">+ Area label</button>
   <div class="edit-sep"></div>
+  <button class="btn" style="color:#7d5a00;border:1.5px solid #c8970a;background:#fffbe6;" id="btn-add-image">+ Image</button>
+  <input type="file" id="image-upload" accept="image/*" style="display:none">
+  <div class="edit-sep"></div>
   <label>Map size:</label>
   <label style="font-size:12px;color:#888;">W</label>
   <input type="number" id="map-width" value="960" min="400" max="3000" step="40" />
@@ -262,7 +278,7 @@ const DEFAULT_SPOTS = [{"h":50,"id":"s1","label":"1","w":60,"x":320,"y":150},{"h
 const DEFAULT_LABELS = [{"fs":14,"id":"l_storanget","text":"Storanget","x":160,"y":10},{"fs":11,"id":"l_brygga","text":"Brygga","x":840,"y":100},{"fs":11,"id":"l_fiske","text":"Fiske","x":1100,"y":100},{"fs":11,"id":"l_kanot","text":"Kanot","x":1160,"y":100},{"fs":23,"id":"l_recept","text":"Recept","x":1210,"y":240},{"fs":18,"id":"l_kok","text":"Kök","x":1220,"y":400},{"fs":17,"id":"l_toalett","text":"Toalett","x":1220,"y":430},{"fs":18,"id":"l_dusch","text":"Dusch","x":1220,"y":460}];
 const DEFAULT_MAP = { w: 1360, h: 820 };
 
-let state = { spots:[], labels:[], guests:{}, mapW:1360, mapH:820 };
+let state = { spots:[], labels:[], images:[], guests:{}, mapW:1360, mapH:820 };
 let editMode = false;
 let activeSpotId = null;
 let pendingStatusSpotId = null;
@@ -273,7 +289,8 @@ async function loadState() {
     const remote = await dbFetch('');
     if (remote && remote.spots && remote.spots.length > 0) {
       state = remote;
-      if (!state.mapW) { state.mapW = 960; state.mapH = 760; }
+      if (!state.mapW) { state.mapW = 1360; state.mapH = 820; }
+      if (!state.images) state.images = [];
       lastRemoteHash = JSON.stringify(remote);
       setSyncStatus('ok', '🟢 Synced');
     } else {
@@ -296,7 +313,7 @@ async function loadState() {
 function resetToDefault() {
   state.spots = JSON.parse(JSON.stringify(DEFAULT_SPOTS));
   state.labels = JSON.parse(JSON.stringify(DEFAULT_LABELS));
-  state.guests = {}; state.mapW = 1360; state.mapH = 820;
+  state.images = []; state.guests = {}; state.mapW = 1360; state.mapH = 820;
 }
 
 function saveState() {
@@ -328,6 +345,29 @@ function renderMap() {
   map.innerHTML = '';
   applyMapSize();
   if (editMode) map.classList.add('edit-mode'); else map.classList.remove('edit-mode');
+
+  // Render images (below spots so they appear behind)
+  (state.images || []).forEach(img => {
+    const el = document.createElement('div');
+    el.className = 'map-image' + (editMode ? ' editable' : '');
+    el.style.left = img.x + 'px'; el.style.top = img.y + 'px';
+    el.style.width = (img.w || 80) + 'px'; el.style.height = (img.h || 80) + 'px';
+    el.style.zIndex = 1;
+    const image = document.createElement('img');
+    image.src = img.src; image.draggable = false;
+    el.appendChild(image);
+    if (editMode) {
+      const del = document.createElement('div');
+      del.className = 'img-delete'; del.textContent = '×';
+      del.addEventListener('click', e => { e.stopPropagation(); deleteImage(img.id); });
+      el.appendChild(del);
+      const resz = document.createElement('div');
+      resz.className = 'img-resize';
+      setupImgResize(resz, img, el); el.appendChild(resz);
+      setupDrag(el, img);
+    }
+    map.appendChild(el);
+  });
 
   (state.labels || []).forEach(lb => {
     const el = document.createElement('div');
@@ -393,8 +433,8 @@ function renderMap() {
 
 function setupDrag(el, data) {
   el.addEventListener('mousedown', e => {
-    if (e.target.classList.contains('spot-delete') || e.target.classList.contains('label-delete') ||
-        e.target.classList.contains('spot-resize') || e.target.classList.contains('label-resize')) return;
+    if (e.target.classList.contains('spot-delete') || e.target.classList.contains('label-delete') || e.target.classList.contains('img-delete') ||
+        e.target.classList.contains('spot-resize') || e.target.classList.contains('label-resize') || e.target.classList.contains('img-resize')) return;
     e.preventDefault();
     const rect = el.parentElement.getBoundingClientRect();
     const ox = e.clientX - rect.left - data.x, oy = e.clientY - rect.top - data.y;
@@ -421,6 +461,39 @@ function setupSpotResize(handle, spot, el) {
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
   });
 }
+
+function setupImgResize(handle, img, el) {
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX, startY = e.clientY, startW = img.w||80, startH = img.h||80;
+    function onMove(ev) {
+      img.w = Math.max(20, Math.round((startW + ev.clientX - startX) / 10) * 10);
+      img.h = Math.max(20, Math.round((startH + ev.clientY - startY) / 10) * 10);
+      el.style.width = img.w + 'px'; el.style.height = img.h + 'px';
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveState(); }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+  });
+}
+
+function deleteImage(id) {
+  if (!confirm('Delete this image?')) return;
+  state.images = (state.images || []).filter(i => i.id !== id);
+  saveState(); renderMap();
+}
+
+document.getElementById('btn-add-image').onclick = () => document.getElementById('image-upload').click();
+document.getElementById('image-upload').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    if (!state.images) state.images = [];
+    state.images.push({ id: 'img_' + Date.now(), src: ev.target.result, x: 100, y: 100, w: 80, h: 80 });
+    saveState(); renderMap();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+});
 
 function setupLabelResize(handle, lb, el) {
   handle.addEventListener('mousedown', e => {
