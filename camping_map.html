@@ -184,18 +184,21 @@ const DB_URL = 'https://campsite-manager-nas-default-rtdb.europe-west1.firebased
 let syncEnabled = false;
 let ignoreNextRemoteUpdate = false;
 
+function dbUrl(path) {
+  return DB_URL + '/' + path + '.json';
+}
 function dbFetch(path) {
-  return fetch(DB_URL + path + '.json').then(r => r.json());
+  return fetch(dbUrl(path)).then(r => r.json());
 }
 function dbSet(path, data) {
-  return fetch(DB_URL + path + '.json', {
+  return fetch(dbUrl(path), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   }).then(r => r.json());
 }
 function dbPatch(path, data) {
-  return fetch(DB_URL + path + '.json', {
+  return fetch(dbUrl(path), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
