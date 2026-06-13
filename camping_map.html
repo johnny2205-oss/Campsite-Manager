@@ -487,8 +487,7 @@ document.getElementById('btn-save').onclick = () => {
 };
 document.getElementById('btn-free').onclick = () => {
   if (!activeSpotId) return;
-  if (!state.guests[activeSpotId]) state.guests[activeSpotId] = {};
-  state.guests[activeSpotId].status = 'free';
+  state.guests[activeSpotId] = { status: 'free' };
   saveState(); renderMap(); closePanel();
 };
 document.getElementById('btn-change-status').onclick = () => {
